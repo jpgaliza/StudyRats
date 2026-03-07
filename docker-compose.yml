@@ -1,0 +1,38 @@
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  api:
+    build: ./api
+    labels:
+      - "traefik.http.routers.api.rule=Host(`api.studyrats.local`)"
+    depends_on:
+      - postgres-master
+
+  postgres-master:
+    image: bitnami/postgresql:latest
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=master
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_password
+      - POSTGRESQL_USERNAME=admin
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_DATABASE=studyrats
+
+  postgres-slave:
+    image: bitnami/postgresql:latest
+    depends_on:
+      - postgres-master
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=slave
+      - POSTGRESQL_MASTER_HOST=postgres-master
+      - POSTGRESQL_MASTER_PORT_NUMBER=5432
+      - POSTGRESQL_REPLICATION_USER=repl_user
+      - POSTGRESQL_REPLICATION_PASSWORD=repl_password
