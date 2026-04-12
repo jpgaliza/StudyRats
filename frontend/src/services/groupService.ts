@@ -9,3 +9,8 @@ export async function joinGroup(code: string) {
   const response = await api.post("/groups/join", { code });
   return response.data;
 }
+
+export async function listGroups() {
+  const response = await api.get("/groups");
+  return response.data;
+}

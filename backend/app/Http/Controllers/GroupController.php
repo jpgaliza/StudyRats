@@ -23,13 +23,15 @@ class GroupController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
+        $userId = $request->user()->id;
+
         $group = Group::create([
             'name'        => $validated['name'],
-            'owner_id'    => 1,
+            'owner_id'    => $userId,
             'invite_code' => $this->generateInviteCode(),
         ]);
 
-        $group->users()->attach(1);
+        $group->users()->attach($userId);
 
         return response()->json($group, 201);
     }
@@ -46,8 +48,19 @@ class GroupController extends Controller
             return response()->json(['error' => 'Código inválido'], 404);
         }
 
-        $group->users()->syncWithoutDetaching(1);
+        $userId = $request->user()->id;
 
-        return response()->json(['message' => 'Entrou no grupo com sucesso']);
+        $group->users()->syncWithoutDetaching($userId);
+
+        return response()->json([
+            'message' => 'Entrou no grupo com sucesso'
+        ]);
+    }
+
+    public function index(Request $request)
+    {
+        return Group::select('id', 'name', 'invite_code')
+            ->withCount('users')
+            ->get();
     }
 }

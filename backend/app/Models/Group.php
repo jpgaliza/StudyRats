@@ -23,5 +23,14 @@ class Group extends Model
 
         return $code;
     }
+    
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
 
+    public function members()
+    {
+        return $this->belongsToMany(User::class);
+    }
 }
