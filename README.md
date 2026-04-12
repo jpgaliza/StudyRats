@@ -1,87 +1,125 @@
-# StudyRats
+# 🌐 StudyRats — React + Laravel + Docker
 
-## Descrição
+Aplicação web para gerenciamento de estudos, utilizando Laravel no backend, React no frontend e ambiente totalmente conteinerizado com Docker.
 
-O StudyRats é uma plataforma de gamificação voltada para a educação, inspirada no conceito de "GymRats". O objetivo é transformar a rotina de estudos numa experiência social e competitiva. Os utilizadores podem criar ou entrar em grupos de estudo, realizar check-ins de conteúdos estudados e acompanhar um ranking dinâmico baseado no volume de estudo dos membros do grupo.
+## 🗂️ Estrutura
+---
+    studyrats/
+    ├── backend/          # Laravel API
+    ├── frontend/         # React Web
+    ├── docker/           # Configurações de Nginx/PHP
+    ├── docker-compose.yml
+    └── README.md
+---
 
-## Arquitetura
-
-| Camada             | Tecnologia                             |
-| ------------------ | -------------------------------------- |
-| Frontend           | React Native (Expo)                    |
-| Backend            | Laravel 11                             |
-| Base de Dados      | PostgreSQL com replicação Master/Slave |
-| Proxy/Orquestração | Traefik + Docker Compose               |
-
-## Como rodar o projeto localmente
-
-### Pré-requisitos
-
-- Docker e Docker Compose
-- Node.js e NPM (para o frontend mobile)
-- Git
-
-### Passo a passo
-
-**1. Clone o repositório**
+## 🚀 1. Clonar o projeto
 
 ```bash
-git clone <url-do-repositorio>
-cd studyrats
+git clone git@github.com:jpgaliza/StudyRats.git
+cd StudyRats
 ```
 
-**2. Configure o Backend**
+---
+
+## ✅ Pré-requisitos
+
+* **Docker** + **Docker Compose**
+* **Node.js** (v20 ou superior)
+* **Composer** (pode ser executado via Docker)
+
+---
+
+## 🐳 2. Subir os Containers
+
+Na raiz do projeto, execute:
 
 ```bash
-cd api
-cp .env.example .env
-cd ..
+docker compose up -d --build
 ```
 
-**3. Suba os containers**
+---
+
+## ⚙️ 3. Configuração do Backend (Laravel)
+
+### Criar o arquivo `.env`
 
 ```bash
-docker compose up -d
+cp backend/.env.example backend/.env
 ```
 
-**4. Inicialize o Laravel**
+### Setup das dependências e chaves
+Execute os comandos dentro do container da aplicação:
 
 ```bash
-docker compose exec api composer install
-docker compose exec api php artisan key:generate
-docker compose exec api php artisan migrate
+# Acessar o container
+docker compose exec app bash
+
+# Instalar dependências do PHP
+composer install
+
+# Gerar chave e rodar migrações
+php artisan key:generate
+php artisan migrate
+
+exit
 ```
 
-**5. Instale as dependências do Frontend e inicie**
+---
+
+## 💻 4. Configuração do Frontend (React)
+
+Navegue até a pasta do frontend para instalar as dependências e iniciar o servidor de desenvolvimento:
 
 ```bash
-cd mobile
+cd frontend
 npm install
-npx expo start
+npm run dev
 ```
 
-### Acesso
+---
 
-#### API
+## 🔗 Acesso ao Ambiente
 
-O Traefik atua como proxy reverso e roteia as requisições para o container da API. Para que o endereço `api.studyrats.local` funcione, adicione a seguinte entrada no arquivo `/etc/hosts` da sua máquina:
+| Serviço    | URL                      |
+| ---------- | ------------------------ |
+| **Frontend** | `http://localhost:5173` (Vite padrão) |
+| **Backend/API**| `http://localhost:8000` |
+| **phpMyAdmin** | `http://localhost:8080` |
 
+---
+
+## ⚙️ Variáveis de Ambiente (.env do Backend)
+
+Certifique-se de que a conexão com o banco de dados no seu `backend/.env` aponta para o serviço do Docker:
+
+```env
+APP_NAME=StudyRats
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+DB_CONNECTION=mysql
+DB_HOST=mysql        # Nome do serviço no docker-compose
+DB_PORT=3306
+DB_DATABASE=studyrats
+DB_USERNAME=studyrats_user
+DB_PASSWORD=secret
+
+CACHE_STORE=redis
+REDIS_HOST=redis
+REDIS_PORT=6379
 ```
-127.0.0.1   api.studyrats.local
-```
 
-Após isso, a API estará acessível em:
+---
 
-```
-http://api.studyrats.local
-```
+## 🛠️ Troubleshooting (Solução de Problemas)
 
-#### Mobile
+| Problema                 | Solução                                      |
+| ------------------------ | -------------------------------------------- |
+| Erro de permissão (Linux) | `sudo chown -R $USER:$USER storage bootstrap/cache` |
+| Container não sobe       | `docker compose logs -f` para ver o erro      |
+| Mudança no .env          | `php artisan config:clear`                   |
+| Porta 8000 ocupada       | Verifique se não há um `php artisan serve` rodando |
 
-Ao executar `npx expo start`, um dashboard interativo será exibido no terminal com as seguintes opções de conexão:
-
-- Pressione `a` para abrir no emulador Android
-- Pressione `i` para abrir no simulador iOS
-- Escaneie o QR Code com o aplicativo **Expo Go** para acessar via dispositivo físico
-
-> Para usar um dispositivo físico, certifique-se de que ele está na mesma rede Wi-Fi que a máquina de desenvolvimento.
+---
