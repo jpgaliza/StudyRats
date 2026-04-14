@@ -66,23 +66,13 @@ exit
 
 ---
 
-## 💻 4. Configuração do Frontend (React)
-
-Navegue até a pasta do frontend para instalar as dependências e iniciar o servidor de desenvolvimento:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
 ---
 
 ## 🔗 Acesso ao Ambiente
 
 | Serviço    | URL                      |
 | ---------- | ------------------------ |
-| **Frontend** | `http://localhost:5173` (Vite padrão) |
+| **Frontend** | http://localhost:5173 (via Docker) |
 | **Backend/API**| `http://localhost:8000` |
 | **phpMyAdmin** | `http://localhost:8080` |
 
