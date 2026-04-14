@@ -59,8 +59,43 @@ class GroupController extends Controller
 
     public function index(Request $request)
     {
-        return Group::select('id', 'name', 'invite_code')
-            ->withCount('users')
+        return Group::withCount('users')
             ->get();
+    }
+
+    public function update(Request $request, $id)
+    {
+        $group = Group::findOrFail($id);
+
+        if ($group->owner_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $group->update(['name' => $request->name]);
+
+        return response()->json($group);
+    }
+
+    public function destroy($id)
+    {
+        $group = Group::findOrFail($id);
+
+        if ($group->owner_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $group->delete();
+
+        return response()->json(['message' => 'Deleted']);
+    }
+
+    public function show($id)
+    {
+        $group = Group::with('users')->findOrFail($id);
+        return response()->json($group);
     }
 }
