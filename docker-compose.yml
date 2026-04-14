@@ -27,9 +27,29 @@ services:
       - ./backend:/var/www
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     networks:
-      - studyrats_network   # 🔥 corrigido
+      - studyrats_network
     depends_on:
       - app
+
+  # ─── Frontend (React + Vite) ───────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: studyrats_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      # Evita que o node_modules do host sobrescreva o do container
+      - /app/node_modules
+    networks:
+      - studyrats_network
+    depends_on:
+      - nginx
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   # ─── MySQL ─────────────────────────────────────────────
   mysql:
@@ -37,7 +57,7 @@ services:
     container_name: studyrats_mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: studyrats   
+      MYSQL_DATABASE: studyrats
       MYSQL_USER: studyrats_user
       MYSQL_PASSWORD: secret
       MYSQL_ROOT_PASSWORD: root_secret
@@ -67,7 +87,7 @@ services:
       - "8080:80"
     environment:
       PMA_HOST: mysql
-      PMA_USER: studyrats_user   # 🔥 corrigido
+      PMA_USER: studyrats_user
       PMA_PASSWORD: secret
     networks:
       - studyrats_network

@@ -28,7 +28,7 @@ export default function Welcome() {
 
       <div style={{ display: "flex", gap: "12px" }}>
         <button
-          onClick={() => navigate("/create-group")}
+          onClick={() => navigate("/groups")}
           style={{
             padding: "12px 20px",
             borderRadius: "8px",
@@ -39,22 +39,7 @@ export default function Welcome() {
             fontWeight: "bold",
           }}
         >
-          Create Group
-        </button>
-
-        <button
-          onClick={() => navigate("/join-group")}
-          style={{
-            padding: "12px 20px",
-            borderRadius: "8px",
-            border: "1px solid white",
-            cursor: "pointer",
-            background: "transparent",
-            color: "white",
-            fontWeight: "bold",
-          }}
-        >
-          Join Group
+          Groups
         </button>
       </div>
       <LogoutButton />

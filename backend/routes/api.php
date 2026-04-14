@@ -17,7 +17,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me',           [AuthController::class, 'me']);
     Route::post('/logout',      [AuthController::class, 'logout']);
 
+    // Groups
     Route::post('/groups',      [GroupController::class, 'store']);
     Route::post('/groups/join', [GroupController::class, 'join']);
     Route::get('/groups',       [GroupController::class, 'index']);
+
+    //(CRUD)
+    Route::get('/groups/{id}',  [GroupController::class, 'show']);
+    Route::put('/groups/{id}',  [GroupController::class, 'update']);
+    Route::delete('/groups/{id}', [GroupController::class, 'destroy']);
 });
