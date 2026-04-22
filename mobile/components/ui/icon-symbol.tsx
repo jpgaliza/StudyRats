@@ -1,29 +1,29 @@
-// Fallback for using MaterialIcons on Android and web.
+// Fallback for cross-platform icons using Lucide.
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Home, Send, Code, ChevronRight } from 'lucide-react-native';
 import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
 import { ComponentProps } from 'react';
-import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
+import { OpaqueColorValue, type StyleProp, type ViewStyle } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
+type IconMapping = Record<string, React.ComponentType<any>>;
 type IconSymbolName = keyof typeof MAPPING;
 
 /**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
+ * Add your SF Symbols to Lucide Icons mappings here.
+ * - see Lucide icons at https://lucide.dev/icons/
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
 const MAPPING = {
-  'house.fill': 'home',
-  'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
-  'chevron.right': 'chevron-right',
-} as IconMapping;
+  'house.fill': Home,
+  'paperplane.fill': Send,
+  'chevron.left.forwardslash.chevron.right': Code,
+  'chevron.right': ChevronRight,
+};
 
 /**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
+ * An icon component that uses native SF Symbols on iOS, and Lucide Icons on Android and web.
  * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
+ * Icon `name`s are based on SF Symbols and require manual mapping to Lucide Icons.
  */
 export function IconSymbol({
   name,
@@ -34,8 +34,9 @@ export function IconSymbol({
   name: IconSymbolName;
   size?: number;
   color: string | OpaqueColorValue;
-  style?: StyleProp<TextStyle>;
+  style?: StyleProp<ViewStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  const IconComponent = MAPPING[name];
+  return <IconComponent color={color} size={size} style={style} />;
 }
