@@ -1,4 +1,4 @@
-# 🌐 StudyRats — React + Laravel + Docker
+# 🌐 StudyRats — Laravel API + Mobile (React Native Expo) + Docker
 
 Aplicação web para gerenciamento de estudos, utilizando Laravel no backend, React no frontend e ambiente totalmente conteinerizado com Docker.
 
