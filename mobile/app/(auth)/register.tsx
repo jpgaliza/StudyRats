@@ -28,18 +28,21 @@ export default function Register() {
 
   const handleRegister = async () => {
     if (!formData.email.trim() || !formData.password) {
-      Alert.alert("Error", "Email and password are required.");
+      Alert.alert("Erro", "E-mail e senha são obrigatórios.");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert("Error", "Passwords don't match!");
+      Alert.alert("Erro", "As senhas não coincidem!");
       return;
     }
 
     const name = formData.realName.trim() || formData.username.trim();
     if (!name) {
-      Alert.alert("Error", "Please enter your real name or username.");
+      Alert.alert(
+        "Erro",
+        "Por favor, insira seu nome real ou nome de usuário.",
+      );
       return;
     }
 
@@ -60,8 +63,8 @@ export default function Register() {
       router.replace("/(tabs)");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to create account.";
-      Alert.alert("Registration error", message);
+        error instanceof Error ? error.message : "Falha ao criar conta.";
+      Alert.alert("Erro de registro", message);
     } finally {
       setIsLoading(false);
     }
@@ -93,33 +96,29 @@ export default function Register() {
             <Text style={styles.title}>
               Study<Text style={styles.titleAccent}>Rats</Text>
             </Text>
-            <Text style={styles.subtitle}>Join the grind.</Text>
+            <Text style={styles.subtitle}>Junte-se à rotina.</Text>
           </View>
 
           {/* Register Form */}
           <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>Create Account</Text>
+            <Text style={styles.formTitle}>Criar conta</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Real Name</Text>
+              <Text style={styles.label}>Nome real</Text>
               <TextInput
                 style={styles.input}
                 value={formData.realName}
                 onChangeText={(value) => handleChange("realName", value)}
-                placeholder="John Doe"
-                placeholderTextColor="#9ca3af"
                 autoComplete="name"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
+              <Text style={styles.label}>Nome de usuário</Text>
               <TextInput
                 style={styles.input}
                 value={formData.username}
                 onChangeText={(value) => handleChange("username", value)}
-                placeholder="johndoe"
-                placeholderTextColor="#9ca3af"
                 autoCapitalize="none"
                 autoComplete="username"
               />
@@ -131,8 +130,6 @@ export default function Register() {
                 style={styles.input}
                 value={formData.email}
                 onChangeText={(value) => handleChange("email", value)}
-                placeholder="you@example.com"
-                placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -140,26 +137,22 @@ export default function Register() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>Senha</Text>
               <TextInput
                 style={styles.input}
                 value={formData.password}
                 onChangeText={(value) => handleChange("password", value)}
-                placeholder="••••••••"
-                placeholderTextColor="#9ca3af"
                 secureTextEntry
                 autoComplete="password-new"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.label}>Confirmar senha</Text>
               <TextInput
                 style={styles.input}
                 value={formData.confirmPassword}
                 onChangeText={(value) => handleChange("confirmPassword", value)}
-                placeholder="••••••••"
-                placeholderTextColor="#9ca3af"
                 secureTextEntry
                 autoComplete="password-new"
               />
@@ -180,16 +173,16 @@ export default function Register() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>
-                  {isLoading ? "Creating account..." : "Create Account"}
+                  {isLoading ? "Criando conta..." : "Criar conta"}
                 </Text>
               </LinearGradient>
             </Pressable>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account? </Text>
+              <Text style={styles.footerText}>Já tem uma conta? </Text>
               <Link href="/(auth)/login" asChild>
                 <Pressable>
-                  <Text style={styles.link}>Log In</Text>
+                  <Text style={styles.link}>Entrar</Text>
                 </Pressable>
               </Link>
             </View>

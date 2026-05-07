@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Home, Users, Trophy } from "lucide-react-native";
+import { Home, Users, User } from "lucide-react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 
@@ -22,7 +22,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: "Painel",
           tabBarIcon: ({ color, size }) => (
             <Home size={size || 28} color={color} />
           ),
@@ -31,19 +31,25 @@ export default function TabLayout() {
       <Tabs.Screen
         name="groups"
         options={{
-          title: "Groups",
+          title: "Grupos",
           tabBarIcon: ({ color, size }) => (
             <Users size={size || 28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Perfil",
+          tabBarIcon: ({ color, size }) => (
+            <User size={size || 28} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="leaderboard"
         options={{
-          title: "Leaderboard",
-          tabBarIcon: ({ color, size }) => (
-            <Trophy size={size || 28} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

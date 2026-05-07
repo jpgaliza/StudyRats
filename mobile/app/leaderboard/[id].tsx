@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +8,15 @@ import {
   Pressable,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Zap, Trophy, Medal } from "lucide-react-native";
+import { Plus, Trophy, Medal } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { studyGroups, currentUser } from "@/data/mockData";
 
 export default function Leaderboard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const group = studyGroups.find((g) => g.id === id);
+
+  const [visibleCount, setVisibleCount] = useState(10);
 
   if (!group) {
     return (
@@ -25,9 +28,6 @@ export default function Leaderboard() {
 
   const getRankStyle = (rank: number, isCurrentUser: boolean) => {
     if (isCurrentUser) return styles.currentUserRow;
-    if (rank === 1) return styles.rank1Row;
-    if (rank === 2) return styles.rank2Row;
-    if (rank === 3) return styles.rank3Row;
     return styles.normalRow;
   };
 
@@ -58,8 +58,8 @@ export default function Leaderboard() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Zap size={20} color="#fff" />
-            <Text style={styles.checkInText}>Check-In for {group.name}</Text>
+            <Plus size={20} color="#fff" />
+            <Text style={styles.checkInText}>Novo Check-in</Text>
           </LinearGradient>
         </Pressable>
 
@@ -70,7 +70,25 @@ export default function Leaderboard() {
             <Text style={styles.cardSubtitle}>Check-ins this month</Text>
           </View>
           <View style={styles.leaderboardList}>
-            {group.allMembers.map((member, index) => {
+            {/* Mostrar informações do usuário atual acima do ranking */}
+            {(() => {
+              const currentMember = group.allMembers.find(
+                (m) => m.userId === currentUser.id,
+              );
+              if (currentMember) {
+                return (
+                  <View style={styles.userInfoCard}>
+                    <Text style={styles.userInfoText}>
+                      Sua posição: #{currentMember.rank} •{" "}
+                      {currentMember.checkInCount} check-ins
+                    </Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
+            {group.allMembers.slice(0, visibleCount).map((member, index) => {
               const isCurrentUser = member.userId === currentUser.id;
               return (
                 <View
@@ -81,38 +99,37 @@ export default function Leaderboard() {
                   ]}
                 >
                   <View style={styles.rankContainer}>
-                    {member.rank <= 3 ? (
-                      member.rank === 1 ? (
-                        <Trophy size={20} color="#fbbf24" />
-                      ) : (
-                        <Medal size={20} color={member.rank === 2 ? "#d1d5db" : "#d97706"} />
-                      )
-                    ) : (
-                      <Text
-                        style={[
-                          styles.rankText,
-                          isCurrentUser && styles.currentUserText,
-                        ]}
-                      >
-                        #{member.rank}
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.rankText,
+                        isCurrentUser && styles.currentUserText,
+                      ]}
+                    >
+                      #{member.rank}
+                    </Text>
                   </View>
                   <Image
                     source={{ uri: member.avatar }}
                     style={styles.avatar}
                   />
-                  <View style={styles.memberInfo}>
+                  <View style={[styles.memberInfo, styles.memberInfoCentered]}>
                     <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                       style={[
                         styles.memberName,
                         isCurrentUser && styles.currentUserText,
                       ]}
                     >
                       {member.name}
-                      {isCurrentUser && " (You)"}
                     </Text>
-                    <Text style={styles.username}>@{member.username}</Text>
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={styles.username}
+                    >
+                      @{member.username}
+                    </Text>
                   </View>
                   <View style={styles.scoreContainer}>
                     <Text
@@ -128,6 +145,25 @@ export default function Leaderboard() {
                 </View>
               );
             })}
+
+            {/* Botão Ver mais para carregar próximos 10 */}
+            {visibleCount < group.allMembers.length && (
+              <View style={{ alignItems: "center", marginTop: 8 }}>
+                <Pressable
+                  onPress={() =>
+                    setVisibleCount((v) =>
+                      Math.min(group.allMembers.length, v + 10),
+                    )
+                  }
+                  style={({ pressed }) => [
+                    styles.verMaisButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.verMaisText}>Ver mais</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
 
@@ -136,17 +172,19 @@ export default function Leaderboard() {
           <Text style={styles.cardTitle}>Top 3 Podium</Text>
           <View style={styles.podium}>
             {group.topMembers[1] && (
-              <View style={[styles.podiumPlace, styles.place2]}>
-                <Image
-                  source={{ uri: group.topMembers[1].avatar }}
-                  style={styles.podiumAvatar2}
-                />
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {group.topMembers[1].name}
-                </Text>
-                <Text style={styles.podiumScore2}>
-                  {group.topMembers[1].checkInCount}
-                </Text>
+              <View style={styles.podiumPlace}>
+                <View style={styles.podiumTopSection}>
+                  <Image
+                    source={{ uri: group.topMembers[1].avatar }}
+                    style={styles.podiumAvatar2}
+                  />
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {group.topMembers[1].name}
+                  </Text>
+                  <Text style={styles.podiumScore2}>
+                    {group.topMembers[1].checkInCount}
+                  </Text>
+                </View>
                 <View style={[styles.podiumBase, styles.podiumBase2]}>
                   <Text style={styles.podiumRank2}>2</Text>
                 </View>
@@ -154,38 +192,40 @@ export default function Leaderboard() {
             )}
             {group.topMembers[0] && (
               <View style={[styles.podiumPlace, styles.place1]}>
-                <Trophy
-                  size={24}
-                  color="#fbbf24"
-                  style={{ marginBottom: 4 }}
-                />
-                <Image
-                  source={{ uri: group.topMembers[0].avatar }}
-                  style={styles.podiumAvatar1}
-                />
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {group.topMembers[0].name}
-                </Text>
-                <Text style={styles.podiumScore1}>
-                  {group.topMembers[0].checkInCount}
-                </Text>
+                <View style={styles.podiumTopSection}>
+                  <View style={styles.podiumCrownWrap}>
+                    <Trophy size={24} color="#fbbf24" />
+                  </View>
+                  <Image
+                    source={{ uri: group.topMembers[0].avatar }}
+                    style={styles.podiumAvatar1}
+                  />
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {group.topMembers[0].name}
+                  </Text>
+                  <Text style={styles.podiumScore1}>
+                    {group.topMembers[0].checkInCount}
+                  </Text>
+                </View>
                 <View style={[styles.podiumBase, styles.podiumBase1]}>
                   <Text style={styles.podiumRank1}>1</Text>
                 </View>
               </View>
             )}
             {group.topMembers[2] && (
-              <View style={[styles.podiumPlace, styles.place3]}>
-                <Image
-                  source={{ uri: group.topMembers[2].avatar }}
-                  style={styles.podiumAvatar3}
-                />
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {group.topMembers[2].name}
-                </Text>
-                <Text style={styles.podiumScore3}>
-                  {group.topMembers[2].checkInCount}
-                </Text>
+              <View style={styles.podiumPlace}>
+                <View style={styles.podiumTopSection}>
+                  <Image
+                    source={{ uri: group.topMembers[2].avatar }}
+                    style={styles.podiumAvatar3}
+                  />
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {group.topMembers[2].name}
+                  </Text>
+                  <Text style={styles.podiumScore3}>
+                    {group.topMembers[2].checkInCount}
+                  </Text>
+                </View>
                 <View style={[styles.podiumBase, styles.podiumBase3]}>
                   <Text style={styles.podiumRank3}>3</Text>
                 </View>
@@ -254,7 +294,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    height: 64,
+    overflow: "hidden",
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -263,47 +306,99 @@ const styles = StyleSheet.create({
   rank2Row: { backgroundColor: "#f3f4f6", borderColor: "#d1d5db" },
   rank3Row: { backgroundColor: "#fed7aa", borderColor: "#d97706" },
   normalRow: { backgroundColor: "#fff", borderColor: "#e5e7eb" },
-  rankContainer: { width: 48, alignItems: "center" },
-  rankText: { fontSize: 18, fontWeight: "900", color: "#9ca3af" },
+  rankContainer: { width: 40, alignItems: "center" },
+  rankText: { fontSize: 16, fontWeight: "700", color: "#9ca3af" },
   currentUserText: { color: "#0ea5e9" },
-  avatar: { width: 48, height: 48, borderRadius: 24 },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
   memberInfo: { flex: 1 },
+  /* center texts vertically within fixed-height row */
+  memberInfoCentered: { justifyContent: "center" },
   memberName: { fontSize: 16, fontWeight: "700", color: "#111827" },
   username: { fontSize: 14, color: "#6b7280" },
   scoreContainer: { alignItems: "flex-end" },
-  score: { fontSize: 24, fontWeight: "900", color: "#111827" },
+  score: { fontSize: 20, fontWeight: "900", color: "#111827" },
   scoreLabel: { fontSize: 12, color: "#6b7280" },
+  userInfoCard: {
+    alignSelf: "center",
+    width: "100%",
+    backgroundColor: "#eff6ff",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: "#60a5fa",
+    marginBottom: 12,
+    shadowColor: "#0ea5e9",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  userInfoText: {
+    fontSize: 15,
+    color: "#0f172a",
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  verMaisButton: {
+    backgroundColor: "#eef2ff",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  verMaisText: { color: "#3730a3", fontWeight: "700" },
   podium: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "flex-end",
-    gap: 16,
-    height: 280,
+    gap: 8,
+    height: 320,
+    paddingTop: 10,
+    paddingHorizontal: 4,
   },
-  podiumPlace: { alignItems: "center", width: 90 },
-  place1: { marginBottom: 0 },
-  place2: { marginBottom: 60 },
-  place3: { marginBottom: 100 },
+  podiumPlace: {
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flex: 1,
+    maxWidth: 108,
+  },
+  place1: {},
+  place2: {},
+  place3: {},
+  podiumTopSection: {
+    alignItems: "center",
+    justifyContent: "flex-end",
+    minHeight: 132,
+    width: "100%",
+  },
+  podiumCrownWrap: {
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
   podiumAvatar1: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 4,
     borderColor: "#fbbf24",
     marginBottom: 8,
   },
   podiumAvatar2: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 4,
     borderColor: "#d1d5db",
     marginBottom: 8,
   },
   podiumAvatar3: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 4,
     borderColor: "#d97706",
     marginBottom: 8,
@@ -314,38 +409,42 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 4,
     textAlign: "center",
+    minHeight: 32,
   },
   podiumScore1: {
     fontSize: 20,
     fontWeight: "900",
     color: "#fbbf24",
     marginBottom: 8,
+    minHeight: 28,
   },
   podiumScore2: {
     fontSize: 18,
     fontWeight: "900",
     color: "#d1d5db",
     marginBottom: 8,
+    minHeight: 28,
   },
   podiumScore3: {
     fontSize: 16,
     fontWeight: "900",
     color: "#d97706",
     marginBottom: 8,
+    minHeight: 28,
   },
   podiumBase: {
-    width: 90,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    width: "100%",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  podiumBase1: { backgroundColor: "#fbbf24", height: 140, paddingTop: 20 },
-  podiumBase2: { backgroundColor: "#d1d5db", height: 100, paddingTop: 16 },
-  podiumBase3: { backgroundColor: "#d97706", height: 70, paddingTop: 12 },
+  podiumBase1: { backgroundColor: "#fbbf24", height: 140, paddingTop: 18 },
+  podiumBase2: { backgroundColor: "#d1d5db", height: 110, paddingTop: 16 },
+  podiumBase3: { backgroundColor: "#d97706", height: 92, paddingTop: 12 },
   podiumRank1: { fontSize: 36, fontWeight: "900", color: "#92400e" },
   podiumRank2: { fontSize: 32, fontWeight: "900", color: "#4b5563" },
-  podiumRank3: { fontSize: 28, fontWeight: "900", color: "#fff" },
+  podiumRank3: { fontSize: 30, fontWeight: "900", color: "#fff" },
   errorContainer: {
     flex: 1,
     justifyContent: "center",

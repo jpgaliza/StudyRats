@@ -1,9 +1,11 @@
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 export interface BackendUser {
   id: number;
   name: string;
   email: string;
+  username?: string;
 }
 
 export interface BackendGroup {
@@ -40,11 +42,29 @@ const envApiUrl = (
   }
 ).process?.env?.EXPO_PUBLIC_API_URL?.trim();
 
+function getLocalNetworkApiUrl() {
+  const hostUri = Constants.expoConfig?.hostUri?.trim();
+
+  if (!hostUri) {
+    return Platform.OS === "android"
+      ? "http://10.0.2.2:8000/api"
+      : "http://localhost:8000/api";
+  }
+
+  let host = hostUri;
+
+  try {
+    host = new URL(hostUri).hostname;
+  } catch {
+    host = hostUri.replace(/^.*?:\/\//, "").split(":")[0];
+  }
+
+  return `http://${host}:8000/api`;
+}
+
 export const API_BASE_URL = envApiUrl
   ? envApiUrl.replace(/\/$/, "")
-  : Platform.OS === "android"
-    ? "http://10.0.2.2:8000/api"
-    : "http://localhost:8000/api";
+  : getLocalNetworkApiUrl();
 
 let authToken: string | null = null;
 let authUser: BackendUser | null = null;
@@ -154,4 +174,19 @@ export async function joinGroup(payload: { code: string }) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function updateUserProfile(payload: { name?: string; email?: string }) {
+  return request<BackendUser>("/profile", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getGroupsUserStats() {
+  return request<{
+    activeGroups: number;
+    totalGroups: number;
+    studyChallengeWins: number;
+  }>("/user/stats", { method: "GET" });
 }
