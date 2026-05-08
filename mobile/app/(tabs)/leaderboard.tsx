@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,23 +8,82 @@ import {
   Pressable,
   Modal,
   Alert,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { AlertCircle, Plus, Trophy, Medal } from "lucide-react-native";
+import {
+  AlertCircle,
+  Plus,
+  Trophy,
+  Edit2,
+  RefreshCw,
+  X,
+} from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
-import { studyGroups, currentUser } from "@/data/mockData";
+import { studyGroups, currentUser, type StudyGroup } from "@/data/mockData";
 import { CheckInModal } from "@/components/CheckInModal";
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function cloneGroup(group?: StudyGroup) {
+  if (!group) return null;
+
+  return {
+    ...group,
+    topMembers: group.topMembers.map((member) => ({ ...member })),
+    allMembers: group.allMembers.map((member) => ({ ...member })),
+  };
+}
+
+function resetGroupMembers(group: StudyGroup): StudyGroup {
+  const members = [...group.allMembers]
+    .sort((left, right) => left.rank - right.rank)
+    .map((member, index) => ({
+      ...member,
+      checkInCount: 0,
+      rank: index + 1,
+    }));
+
+  return {
+    ...group,
+    allMembers: members,
+    topMembers: members.slice(0, 3),
+  };
+}
 
 export default function Leaderboard() {
   const params = useLocalSearchParams<{ groupId?: string }>();
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
+  const groupId = Array.isArray(params.groupId)
+    ? params.groupId[0]
+    : params.groupId || studyGroups[0]?.id;
+  const [group, setGroup] = useState<StudyGroup | null>(() => {
+    return cloneGroup(
+      studyGroups.find((item) => item.id === groupId) ?? studyGroups[0],
+    );
+  });
+  const [editedTitle, setEditedTitle] = useState(group?.name ?? "");
+  const [editedDescription, setEditedDescription] = useState(
+    group?.description ?? "",
+  );
 
-  // Get groupId from params, or default to first group
-  const groupId = params.groupId || studyGroups[0]?.id;
-  const group = studyGroups.find((g) => g.id === groupId);
+  const selectedGroup = group ?? cloneGroup(studyGroups[0]);
 
-  if (!group) {
+  useEffect(() => {
+    const nextGroup = cloneGroup(
+      studyGroups.find((item) => item.id === groupId) ?? studyGroups[0],
+    );
+
+    if (nextGroup) {
+      setGroup(nextGroup);
+      setEditedTitle(nextGroup.name);
+      setEditedDescription(nextGroup.description ?? "");
+    }
+  }, [groupId]);
+
+  if (!selectedGroup) {
     return (
       <LinearGradient
         colors={["#eff6ff", "#ffffff", "#f0f9ff"]}
@@ -41,9 +100,74 @@ export default function Leaderboard() {
     );
   }
 
+  const isOwner = selectedGroup.ownerId === currentUser.id;
+  const challengeEndsAt = new Date(selectedGroup.challengeEndsAt);
+  const isChallengeExpired = challengeEndsAt.getTime() <= Date.now();
+  const remainingDays = Math.max(
+    0,
+    Math.ceil((challengeEndsAt.getTime() - Date.now()) / MS_PER_DAY),
+  );
+
   const getRankStyle = (rank: number, isCurrentUser: boolean) => {
     if (isCurrentUser) return styles.currentUserRow;
     return styles.normalRow;
+  };
+
+  const handleSaveGroup = () => {
+    if (!editedTitle.trim()) {
+      Alert.alert("Dados ausentes", "Forneça um título para o grupo.");
+      return;
+    }
+
+    setGroup((current) =>
+      current
+        ? {
+            ...current,
+            name: editedTitle.trim(),
+            description: editedDescription.trim() || undefined,
+          }
+        : current,
+    );
+    setIsEditOpen(false);
+    Alert.alert("Sucesso", "Grupo atualizado localmente.");
+  };
+
+  const handleStartNewChallenge = () => {
+    if (!isChallengeExpired) {
+      Alert.alert(
+        "Desafio ativo",
+        "O novo desafio só pode ser iniciado quando o ciclo atual terminar.",
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Novo desafio",
+      "Isso zerará os check-ins de todos os membros e iniciará um novo ciclo.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Iniciar",
+          style: "destructive",
+          onPress: () => {
+            setGroup((current) => {
+              if (!current) return current;
+
+              return {
+                ...resetGroupMembers(current),
+                challengeEndsAt: new Date(
+                  Date.now() + current.challengeDurationDays * MS_PER_DAY,
+                ).toISOString(),
+              };
+            });
+            Alert.alert(
+              "Sucesso",
+              "Novo desafio iniciado com reset de check-ins.",
+            );
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -54,10 +178,67 @@ export default function Leaderboard() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{group.name}</Text>
+          <Text style={styles.headerTitle}>{selectedGroup.name}</Text>
+          {selectedGroup.description ? (
+            <Text style={styles.headerDescription}>
+              {selectedGroup.description}
+            </Text>
+          ) : null}
           <Text style={styles.headerSubtitle}>
-            Classificações • {group.memberCount} membros
+            Classificações • {selectedGroup.memberCount} membros
           </Text>
+        </View>
+
+        <View style={styles.challengeCard}>
+          <View style={styles.challengeCardRow}>
+            <View style={styles.challengeInfo}>
+              <Text style={styles.challengeLabel}>Desafio atual</Text>
+              <Text style={styles.challengeValue}>
+                {selectedGroup.challengeDurationDays} dias
+              </Text>
+              <Text style={styles.challengeMeta}>
+                {isChallengeExpired
+                  ? "Ciclo encerrado"
+                  : `${remainingDays} dia(s) restantes`}
+              </Text>
+            </View>
+            {isOwner ? (
+              <View style={styles.ownerBadge}>
+                <Text style={styles.ownerBadgeText}>Dono do grupo</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {isOwner ? (
+            <View style={styles.ownerActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.secondaryActionButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => {
+                  setEditedTitle(selectedGroup.name);
+                  setEditedDescription(selectedGroup.description ?? "");
+                  setIsEditOpen(true);
+                }}
+              >
+                <Edit2 size={16} color="#0f172a" />
+                <Text style={styles.secondaryActionText}>Editar grupo</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryActionButton,
+                  pressed && styles.buttonPressed,
+                  !isChallengeExpired && styles.primaryActionButtonDisabled,
+                ]}
+                onPress={handleStartNewChallenge}
+              >
+                <RefreshCw size={16} color="#fff" />
+                <Text style={styles.primaryActionText}>Novo desafio</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {/* Check-In Button */}
@@ -88,7 +269,7 @@ export default function Leaderboard() {
           <View style={styles.leaderboardList}>
             {/* Mostrar informações do usuário atual acima do ranking */}
             {(() => {
-              const currentMember = group.allMembers.find(
+              const currentMember = selectedGroup.allMembers.find(
                 (m) => m.userId === currentUser.id,
               );
               if (currentMember) {
@@ -104,7 +285,7 @@ export default function Leaderboard() {
               return null;
             })()}
 
-            {group.allMembers.slice(0, visibleCount).map((member) => {
+            {selectedGroup.allMembers.slice(0, visibleCount).map((member) => {
               const isCurrentUser = member.userId === currentUser.id;
               return (
                 <View
@@ -163,12 +344,12 @@ export default function Leaderboard() {
             })}
 
             {/* Botão Ver mais */}
-            {visibleCount < group.allMembers.length && (
+            {visibleCount < selectedGroup.allMembers.length && (
               <View style={{ alignItems: "center", marginTop: 8 }}>
                 <Pressable
                   onPress={() =>
                     setVisibleCount((v) =>
-                      Math.min(group.allMembers.length, v + 10),
+                      Math.min(selectedGroup.allMembers.length, v + 10),
                     )
                   }
                   style={({ pressed }) => [
@@ -187,18 +368,18 @@ export default function Leaderboard() {
         <View style={[styles.card, { marginBottom: 100 }]}>
           <Text style={styles.cardTitle}>Pódio Top 3</Text>
           <View style={styles.podium}>
-            {group.topMembers[1] && (
+            {selectedGroup.topMembers[1] && (
               <View style={styles.podiumPlace}>
                 <View style={styles.podiumTopSection}>
                   <Image
-                    source={{ uri: group.topMembers[1].avatar }}
+                    source={{ uri: selectedGroup.topMembers[1].avatar }}
                     style={styles.podiumAvatar2}
                   />
                   <Text style={styles.podiumName} numberOfLines={1}>
-                    {group.topMembers[1].name}
+                    {selectedGroup.topMembers[1].name}
                   </Text>
                   <Text style={styles.podiumScore2}>
-                    {group.topMembers[1].checkInCount}
+                    {selectedGroup.topMembers[1].checkInCount}
                   </Text>
                 </View>
                 <View style={[styles.podiumBase, styles.podiumBase2]}>
@@ -206,21 +387,21 @@ export default function Leaderboard() {
                 </View>
               </View>
             )}
-            {group.topMembers[0] && (
+            {selectedGroup.topMembers[0] && (
               <View style={[styles.podiumPlace, styles.place1]}>
                 <View style={styles.podiumTopSection}>
                   <View style={styles.podiumCrownWrap}>
                     <Trophy size={24} color="#fbbf24" />
                   </View>
                   <Image
-                    source={{ uri: group.topMembers[0].avatar }}
+                    source={{ uri: selectedGroup.topMembers[0].avatar }}
                     style={styles.podiumAvatar1}
                   />
                   <Text style={styles.podiumName} numberOfLines={1}>
-                    {group.topMembers[0].name}
+                    {selectedGroup.topMembers[0].name}
                   </Text>
                   <Text style={styles.podiumScore1}>
-                    {group.topMembers[0].checkInCount}
+                    {selectedGroup.topMembers[0].checkInCount}
                   </Text>
                 </View>
                 <View style={[styles.podiumBase, styles.podiumBase1]}>
@@ -228,18 +409,18 @@ export default function Leaderboard() {
                 </View>
               </View>
             )}
-            {group.topMembers[2] && (
+            {selectedGroup.topMembers[2] && (
               <View style={styles.podiumPlace}>
                 <View style={styles.podiumTopSection}>
                   <Image
-                    source={{ uri: group.topMembers[2].avatar }}
+                    source={{ uri: selectedGroup.topMembers[2].avatar }}
                     style={styles.podiumAvatar3}
                   />
                   <Text style={styles.podiumName} numberOfLines={1}>
-                    {group.topMembers[2].name}
+                    {selectedGroup.topMembers[2].name}
                   </Text>
                   <Text style={styles.podiumScore3}>
-                    {group.topMembers[2].checkInCount}
+                    {selectedGroup.topMembers[2].checkInCount}
                   </Text>
                 </View>
                 <View style={[styles.podiumBase, styles.podiumBase3]}>
@@ -251,11 +432,84 @@ export default function Leaderboard() {
         </View>
       </ScrollView>
 
+      <Modal
+        visible={isEditOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEditOpen(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setIsEditOpen(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Editar grupo</Text>
+              <Pressable onPress={() => setIsEditOpen(false)}>
+                <X size={24} color="#9ca3af" />
+              </Pressable>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Título do grupo</Text>
+              <TextInput
+                style={styles.input}
+                value={editedTitle}
+                onChangeText={setEditedTitle}
+                placeholder="Nome do grupo"
+                placeholderTextColor="#9ca3af"
+              />
+              <Text style={styles.inputLabel}>Descrição (opcional)</Text>
+              <TextInput
+                style={[styles.input, styles.editTextArea]}
+                value={editedDescription}
+                onChangeText={setEditedDescription}
+                placeholder="Descrição do grupo"
+                placeholderTextColor="#9ca3af"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              <View style={styles.lockedChallengeBox}>
+                <Text style={styles.lockedChallengeLabel}>
+                  Tempo do desafio
+                </Text>
+                <Text style={styles.lockedChallengeValue}>
+                  {selectedGroup.challengeDurationDays} dias
+                </Text>
+                <Text style={styles.lockedChallengeHint}>
+                  Esse tempo não pode ser alterado por edição. Um novo desafio é
+                  iniciado apenas quando o ciclo atual termina.
+                </Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleSaveGroup}
+              >
+                <LinearGradient
+                  colors={["#0ea5e9", "#0284c7"]}
+                  style={styles.modalButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.modalButtonText}>Salvar alterações</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Check-In Modal */}
       <CheckInModal
         isOpen={isCheckInOpen}
         onClose={() => setIsCheckInOpen(false)}
-        groupName={group.name}
+        groupName={selectedGroup.name}
       />
     </LinearGradient>
   );
@@ -273,6 +527,107 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   headerSubtitle: { fontSize: 14, color: "#6b7280", marginTop: 8 },
+  headerDescription: {
+    fontSize: 15,
+    color: "#374151",
+    marginTop: 10,
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  challengeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    shadowColor: "#0ea5e9",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  challengeCardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  challengeInfo: {
+    flex: 1,
+  },
+  challengeLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0ea5e9",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  challengeValue: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#111827",
+    marginTop: 4,
+  },
+  challengeMeta: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 4,
+  },
+  ownerBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#ecfeff",
+    borderColor: "#22d3ee",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  ownerBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#155e75",
+  },
+  ownerActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  secondaryActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  primaryActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#0ea5e9",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  primaryActionButtonDisabled: {
+    opacity: 0.5,
+  },
+  primaryActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
   checkInButton: {
     borderRadius: 16,
     overflow: "hidden",
@@ -362,6 +717,98 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontWeight: "800",
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  modalBody: {
+    gap: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  input: {
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#111827",
+  },
+  editTextArea: {
+    minHeight: 96,
+    paddingTop: 12,
+  },
+  lockedChallengeBox: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 14,
+    padding: 16,
+    gap: 6,
+  },
+  lockedChallengeLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  lockedChallengeValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#0f172a",
+  },
+  lockedChallengeHint: {
+    fontSize: 12,
+    color: "#64748b",
+    lineHeight: 18,
+  },
+  modalButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#0ea5e9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalButtonGradient: {
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
   verMaisButton: {
     backgroundColor: "#eef2ff",

@@ -13,6 +13,10 @@ export interface BackendGroup {
   name: string;
   owner_id: number;
   invite_code: string;
+  description?: string | null;
+  challenge_duration_days?: number | null;
+  challenge_started_at?: string | null;
+  challenge_ends_at?: string | null;
   users_count?: number;
 }
 
@@ -162,9 +166,23 @@ export async function getGroups() {
   return request<BackendGroup[]>("/groups", { method: "GET" });
 }
 
-export async function createGroup(payload: { name: string }) {
+export async function createGroup(payload: {
+  name: string;
+  description?: string;
+  challengeDurationDays: number;
+}) {
   return request<BackendGroup>("/groups", {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateGroup(
+  id: number,
+  payload: { name: string; description?: string },
+) {
+  return request<BackendGroup>(`/groups/${id}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 }

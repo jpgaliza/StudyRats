@@ -1,162 +1,130 @@
-# StudyRats Mobile App
+# StudyRats - Aplicativo Mobile
 
-A React Native mobile application for collaborative study tracking and gamification. StudyRats helps students stay motivated by competing with their study groups through check-ins and leaderboards.
+Descrição de tecnologias e estrutura do Front-end do projeto.
 
-## 🚀 Technologies & Libraries
+## 🚀 Tecnologias e Bibliotecas
 
-### Core Technologies
-- **React Native** - Cross-platform mobile development
-- **Expo** (~54.0.33) - Development platform and tooling
-- **Expo Router** (~6.0.23) - File-based routing for React Native
-- **TypeScript** (~5.9.2) - Type-safe development
+### Tecnologias Principais
 
-### UI & Styling
-- **expo-linear-gradient** - Gradient backgrounds and buttons
-- **@expo/vector-icons** - Ionicons icon library
-- **React Native StyleSheet** - Native styling
+- **React Native** - Desenvolvimento mobile multiplataforma
+- **Expo** (~54.0.33) - Plataforma de desenvolvimento e ferramentas
+- **Expo Router** (~6.0.23) - Roteamento baseado em arquivos para React Native
+- **TypeScript** (~5.9.2) - Desenvolvimento com tipagem forte
 
-### Navigation & State
-- **@react-navigation/native** (~7.1.8) - Navigation infrastructure
-- **@react-navigation/bottom-tabs** (~7.4.0) - Tab navigation
-- **expo-router** - File-based routing system
+### UI e Estilização
 
-### Animation & Interaction
-- **react-native-reanimated** (~4.1.1) - Powerful animation library
-- **react-native-gesture-handler** (~2.28.0) - Gesture handling
-- **expo-haptics** (~15.0.8) - Haptic feedback
+- **expo-linear-gradient** - Gradientes em backgrounds e botões
+- **lucide-react-native** - Ícones modernos e customizáveis
+- **React Native StyleSheet** - Estilização nativa
 
-### Other Features
-- **expo-image** (~3.0.11) - Optimized image component
-- **expo-splash-screen** (~31.0.13) - Splash screen management
-- **expo-status-bar** (~3.0.9) - Status bar control
+### Navegação e Estado
 
-## 📱 App Flow & Structure
+- **@react-navigation/native** (~7.1.8) - Infraestrutura de navegação
+- **@react-navigation/bottom-tabs** (~7.4.0) - Navegação por abas
+- **expo-router** - Sistema de roteamento baseado em arquivos
 
-### Authentication Flow
+### Animações e Interações
+
+- **react-native-reanimated** (~4.1.1) - Biblioteca poderosa de animações
+- **react-native-gesture-handler** (~2.28.0) - Manipulação de gestos
+- **expo-haptics** (~15.0.8) - Feedback háptico (vibração)
+
+### Outras Funcionalidades
+
+- **expo-image** (~3.0.11) - Componente otimizado de imagem
+- **expo-splash-screen** (~31.0.13) - Gerenciamento da tela de splash
+- **expo-status-bar** (~3.0.9) - Controle da barra de status
+
+## 📱 Fluxo da Aplicação
+
+### Fluxo de Autenticação
+
 ```
 (auth)/
-├── login.tsx        - Email/password login
-└── register.tsx     - User registration
+├── login.tsx        - Tela de login com email e senha
+└── register.tsx     - Tela de registro de novo usuário
 ```
 
-Users start at the login screen. After logging in (or registering), they're directed to the main app.
+Os usuários começam na tela de login. Após fazer login (ou se registrar), são direcionados para a aplicação principal.
 
-### Main App Flow
+### Fluxo Principal da Aplicação
+
 ```
 (tabs)/
-├── index.tsx (Dashboard)  - Home screen with stats and activity feed
-└── groups.tsx             - List of study groups, create/join groups
+├── index.tsx           - Dashboard com stats e atividades
+├── groups.tsx          - Lista de grupos e criar/entrar grupos
+├── profile.tsx         - Perfil do usuário
+├── leaderboard.tsx     - Placar com query param groupId
+└── explore.tsx         - Página de informações
 
 leaderboard/
-└── [id].tsx              - Dynamic route for group leaderboards
+└── [id].tsx           - Rota dinâmica para placar de grupo específico
 ```
 
-#### 1. **Dashboard** (index.tsx)
-- Welcome message with user's name
-- Study check-in button (opens group selector → check-in modal)
-- Quick stats (current streak, weekly check-ins)
-- Preview of user's groups (top 3)
-- Recent activity feed from all groups
+### 1. **Dashboard** (index.tsx)
 
-#### 2. **Groups** (groups.tsx)
-- List of all user's study groups
-- Create new group button (opens modal)
-- Join group via code button (opens modal)
-- Each group card shows:
-  - Group name and member count
-  - Group code for invites
-  - Top 3 leaderboard preview
+- Mensagem de boas-vindas com nome do usuário
+- Botão de check-in (abre seletor de grupo → modal de check-in)
+- Quick stats (sequência atual, check-ins semanais)
+- Visualização dos grupos do usuário
+- Feed de atividades recentes de todos os grupos
+- Seletor rápido de grupo para check-in
 
-#### 3. **Leaderboard** (leaderboard/[id].tsx)
-- View specific group's leaderboard
-- Check-in button for that group
-- Full member ranking list
-- Podium visualization for top 3
-- Highlights current user's rank
+### 2. **Grupos** (groups.tsx)
 
-### Shared Components
+- Lista de todos os grupos de estudo do usuário
+- Botão para criar novo grupo (abre modal)
+- Botão para entrar em grupo via código (abre modal)
+- Cada card de grupo exibe:
+  - Nome do grupo e quantidade de membros
+  - Código do grupo para convites
+  - Pré-visualização do top 3 do placar
+  - Descrição do grupo (se houver)
+  - Duração do desafio atual
+
+### 3. **Placar** (leaderboard/[id].tsx)
+
+- Visualizar placar específico de um grupo
+- Botão de check-in para esse grupo
+- Lista completa de membros ordenados por rank
+- Visualização de pódio com top 3 membros
+- Destaca a posição do usuário atual
+- Modo de edição apenas para dono do grupo
+- Botão para iniciar novo desafio (reseta check-ins)
+- Informações de ciclo de desafio (duração e dias restantes)
+
+### 4. **Perfil** (profile.tsx)
+
+- Informações do usuário
+- Estatísticas gerais
+
+### 5. **Componentes Compartilhados**
+
 ```
 components/
-└── CheckInModal.tsx  - Modal for submitting study check-ins
+├── CheckInModal.tsx      - Modal para submeter check-ins de estudo
+├── themed-text.tsx       - Componente de texto com tema
+├── themed-view.tsx       - Componente de visualização com tema
+└── (outros componentes)
 ```
 
-The CheckInModal allows users to:
-- Enter subject/topic studied
-- Upload a photo (mock)
-- Add optional notes
-- Shows success animation on submission
+O CheckInModal permite aos usuários:
 
-## 🏃 Running the App Locally
+- Inserir disciplina/tópico estudado
+- Fazer upload de foto (simulado)
+- Adicionar notas opcionais
+- Ver animação de sucesso após submissão
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
-- Expo Go app installed on your phone (iOS/Android)
-- Or iOS Simulator / Android Emulator on your computer
+## 📊 Estrutura de Dados
 
-### Installation
+### Dados Mock (data/mockData.ts)
 
-1. **Navigate to the mobile directory:**
-   ```bash
-   cd mobile
-   ```
+- **currentUser**: Informações do usuário logado
+- **studyGroups**: Array de grupos de estudo com membros
+- **recentActivity**: Check-ins recentes de todos os grupos
 
-2. **Install dependencies:**
-   ```bash
-   npm install --legacy-peer-deps
-   ```
+### Interfaces Principais
 
-3. **Start the development server:**
-   ```bash
-   npm start
-   ```
-   Or use specific platform commands:
-   ```bash
-   npm run android   # Run on Android
-   npm run ios       # Run on iOS
-   npm run web       # Run on web browser
-   ```
-
-4. **Open on your device:**
-   - Scan the QR code with the Expo Go app (Android)
-   - Scan with Camera app (iOS)
-   - Or press `a` for Android emulator, `i` for iOS simulator
-
-### Development Commands
-
-```bash
-npm start          # Start Expo development server
-npm run android    # Launch on Android emulator/device
-npm run ios        # Launch on iOS simulator/device
-npm run web        # Launch in web browser
-npm run lint       # Run ESLint
-```
-
-## 🎨 Design System
-
-### Colors
-- **Primary**: `#0ea5e9` (Sky Blue) - Main brand color
-- **Primary Dark**: `#0284c7` - For gradients and hover states
-- **Background**: `#eff6ff` to `#f0f9ff` - Light gradient
-- **Text**: `#111827` (Gray 900) - Primary text
-- **Text Secondary**: `#6b7280` (Gray 500) - Secondary text
-- **Borders**: `#e5e7eb` (Gray 200) - Default borders
-
-### Key Features
-- **Gradients**: Used for buttons and backgrounds
-- **Rounded Corners**: 12-16px border radius for cards
-- **Shadows**: Subtle elevation for depth
-- **Haptic Feedback**: Tactile responses on interactions
-
-## 📊 Data Structure
-
-### Mock Data (data/mockData.ts)
-- **currentUser**: Logged-in user information
-- **studyGroups**: Array of study groups with members
-- **recentActivity**: Recent check-ins from all groups
-- **currentStreak**: Days of consecutive check-ins
-
-### Key Interfaces
 ```typescript
 interface User {
   id: string;
@@ -170,8 +138,21 @@ interface StudyGroup {
   name: string;
   code: string;
   memberCount: number;
+  description?: string;
+  ownerId: string;
+  challengeDurationDays: number;
+  challengeEndsAt: string;
   topMembers: GroupMember[];
   allMembers: GroupMember[];
+}
+
+interface GroupMember {
+  userId: string;
+  name: string;
+  username: string;
+  avatar: string;
+  rank: number;
+  checkInCount: number;
 }
 
 interface CheckIn {
@@ -186,55 +167,174 @@ interface CheckIn {
 }
 ```
 
-## 🔄 Routing
+## 🔄 Roteamento
 
-The app uses **Expo Router** for file-based routing:
+O aplicativo utiliza **Expo Router** para roteamento baseado em arquivos:
 
-- `/(auth)/login` - Login screen
-- `/(auth)/register` - Registration screen
+- `/(auth)/login` - Tela de login
+- `/(auth)/register` - Tela de registro
 - `/(tabs)/` - Dashboard (home)
-- `/(tabs)/groups` - Study groups list
-- `/leaderboard/[id]` - Dynamic leaderboard for specific group
+- `/(tabs)/groups` - Lista de grupos de estudo
+- `/(tabs)/leaderboard` - Placar com parâmetro groupId
+- `/(tabs)/profile` - Perfil do usuário
+- `/leaderboard/[id]` - Placar dinâmico para grupo específico
 
-## 🚧 Future Enhancements
+## 💻 Instalação e Execução
 
-- Backend API integration (currently using mock data)
-- Real-time updates with WebSockets
-- Push notifications for group activity
-- Photo upload functionality
-- User profile customization
-- Group chat feature
-- Weekly/monthly statistics
-- Achievement badges
-- Dark mode support
+### Pré-requisitos
 
-## 📝 Notes
+- Node.js (v16 ou superior)
+- npm ou yarn
+- Expo Go instalado no telefone (iOS/Android)
+- OU iOS Simulator / Android Emulator no computador
 
-- This app currently uses **mock data** - no backend integration yet
-- Authentication is simulated (no real validation)
-- Photo upload is UI-only (no actual upload)
-- All check-ins show success but don't persist
+### Instalação
 
-## 🛠️ Troubleshooting
+1. **Navegue para o diretório mobile:**
 
-### Common Issues
+   ```bash
+   cd mobile
+   ```
 
-**Issue: "expo-linear-gradient not found"**
+2. **Instale as dependências:**
+
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+
+3. **Inicie o servidor de desenvolvimento:**
+
+   ```bash
+   npm start
+   ```
+
+   Ou use comandos específicos de plataforma:
+
+   ```bash
+   npm run android   # Executar no Android
+   npm run ios       # Executar no iOS
+   npm run web       # Executar no navegador web
+   ```
+
+4. **Abra no seu dispositivo:**
+   - Escaneie o código QR com o aplicativo Expo Go (Android)
+   - Escaneie com o aplicativo Câmera (iOS)
+   - Ou pressione `a` para emulador Android, `i` para simulador iOS
+
+### Comandos de Desenvolvimento
+
+```bash
+npm start                      # Inicia servidor de desenvolvimento Expo
+npm run android                # Inicia no emulador/dispositivo Android
+npm run ios                    # Inicia no simulador/dispositivo iOS
+npm run web                    # Inicia no navegador web
+npm run lint                   # Executa ESLint para verificar código
+npm start -- --clear           # Limpa cache e reinicia
+```
+
+## 🎨 Sistema de Design
+
+### Paleta de Cores
+
+| Cor                 | Hex       | Uso                                       |
+| ------------------- | --------- | ----------------------------------------- |
+| **Primária**        | `#0ea5e9` | Cor principal da marca, botões e destaque |
+| **Primária Escura** | `#0284c7` | Gradientes e estados hover                |
+| **Cinza 900**       | `#111827` | Texto primário                            |
+| **Cinza 500**       | `#6b7280` | Texto secundário                          |
+| **Cinza 200**       | `#e5e7eb` | Bordas padrão                             |
+| **Cinza 100**       | `#f3f4f6` | Fundos leves                              |
+| **Azul Claro**      | `#eff6ff` | Background principal                      |
+| **Branco**          | `#ffffff` | Fundo de cards                            |
+| **Ouro**            | `#fbbf24` | 1º lugar no pódio                         |
+| **Prata**           | `#d1d5db` | 2º lugar no pódio                         |
+| **Bronze**          | `#d97706` | 3º lugar no pódio                         |
+
+### Espaçamento
+
+- **Padding Pequeno**: 8px
+- **Padding Médio**: 12-16px
+- **Padding Grande**: 24-32px
+- **Gap entre elementos**: 8-16px
+
+### Tipografia
+
+- **Headlines**: Peso 700-900, tamanho 20-28px
+- **Body**: Peso 400-600, tamanho 14-16px
+- **Labels**: Peso 600-700, tamanho 12-14px
+
+### Componentes de UI
+
+| Componente     | Características                                             |
+| -------------- | ----------------------------------------------------------- |
+| **Botões**     | Border radius 12px, padding 12-16px, sombra sutil           |
+| **Cards**      | Border radius 16px, padding 16-24px, borda 1px              |
+| **Modais**     | Border radius 16px, overlay com 60% opacidade, padding 24px |
+| **Inputs**     | Border radius 12px, altura 44px, padding 12px               |
+| **Gradientes** | Utilizados em botões primários e backgrounds                |
+
+### Características Principais
+
+- **Gradientes**: Usados em botões primários e backgrounds
+- **Raios de Borda**: 12-16px para cards, 8-12px para inputs
+- **Sombras**: Elevation sutil para profundidade
+- **Feedback Háptico**: Respostas táteis em interações
+- **Animações**: Transições suaves entre estados
+
+### Responsividade
+
+- **Layouts Flex**: Utilizados para adaptação a diferentes tamanhos
+- **Max-width**: Aplicado em modais (max 400px)
+- **Padding Dinâmico**: Ajustado para diferentes telas
+
+## 📝 Notas Importantes
+
+- Este aplicativo utiliza **dados mock** - não há integração com backend ainda
+- Autenticação é simulada (sem validação real)
+- Upload de foto é apenas UI (sem upload real)
+- Todos os check-ins mostram sucesso mas não persistem
+
+## 🚧 Melhorias Futuras
+
+- Integração com API backend
+- Atualizações em tempo real com WebSockets
+- Notificações push para atividades do grupo
+- Funcionalidade de upload de fotos
+- Customização de perfil do usuário
+- Recurso de chat em grupo
+- Estatísticas semanais/mensais
+- Badges de conquistas
+- Suporte a modo escuro
+
+## 🛠️ Resolução de Problemas
+
+### Problemas Comuns
+
+**Problema: "expo-linear-gradient não encontrado"**
+
 ```bash
 npm install expo-linear-gradient
 ```
 
-**Issue: Metro bundler cache issues**
+**Problema: Problemas de cache do Metro bundler**
+
 ```bash
 npm start -- --clear
 ```
 
-**Issue: iOS/Android build errors**
+**Problema: Erros na compilação iOS/Android**
+
 ```bash
 cd android && ./gradlew clean && cd ..  # Android
 cd ios && pod install && cd ..          # iOS
 ```
 
+**Problema: QR Code não funciona**
+
+```bash
+npm start -- --offline
+```
+
 ---
 
-Built with ❤️ for students who grind together.
+Desenvolvido com ❤️ para estudantes que se dedicam juntos.

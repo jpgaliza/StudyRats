@@ -32,6 +32,10 @@ export interface StudyGroup {
   name: string;
   code: string;
   memberCount: number;
+  description?: string;
+  ownerId: string;
+  challengeDurationDays: number;
+  challengeEndsAt: string;
   topMembers: GroupMember[];
   allMembers: GroupMember[];
 }
@@ -49,17 +53,17 @@ export const recentActivity: CheckIn[] = [
     userId: "user-2",
     userName: "Sarah Johnson",
     userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-    subject: "Calculus I",
+    subject: "Cálculo I",
     duration: "2h",
     timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    note: "Finished chapter 5 exercises!",
+    note: "Finalizei os exercícios do capítulo 5!",
   },
   {
     id: "checkin-2",
     userId: "user-3",
     userName: "Marcus Lee",
     userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus",
-    subject: "Organic Chemistry",
+    subject: "Química Orgânica",
     duration: "3h",
     timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
   },
@@ -68,17 +72,17 @@ export const recentActivity: CheckIn[] = [
     userId: "user-4",
     userName: "Emily Rodriguez",
     userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emily",
-    subject: "Data Structures",
+    subject: "Estruturas de Dados",
     duration: "1.5h",
     timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
-    note: "Binary trees are making sense now!",
+    note: "Árvores binárias estão fazendo sentido agora!",
   },
   {
     id: "checkin-4",
     userId: "user-5",
     userName: "David Kim",
     userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=David",
-    subject: "Physics II",
+    subject: "Física II",
     duration: "2.5h",
     timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000),
   },
@@ -90,6 +94,10 @@ export const studyGroups: StudyGroup[] = [
     name: "CS Grinders 💻",
     code: "CS2024",
     memberCount: 12,
+    description: "Grupo focado em algoritmos, estrutura de dados e projetos práticos.",
+    ownerId: "user-1",
+    challengeDurationDays: 7,
+    challengeEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     topMembers: [
       {
         userId: "user-2",
@@ -220,6 +228,10 @@ export const studyGroups: StudyGroup[] = [
     name: "Med School Warriors 🩺",
     code: "MED2024",
     memberCount: 8,
+    description: "Revisões diárias, simulados e apoio para manter a rotina.",
+    ownerId: "user-4",
+    challengeDurationDays: 14,
+    challengeEndsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     topMembers: [
       {
         userId: "user-3",
@@ -318,6 +330,10 @@ export const studyGroups: StudyGroup[] = [
     name: "Engineering Squad ⚙️",
     code: "ENG2024",
     memberCount: 10,
+    description: "Squad de estudos para sistemas, arquitetura e entregas.",
+    ownerId: "user-6",
+    challengeDurationDays: 10,
+    challengeEndsAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
     topMembers: [
       {
         userId: "user-5",

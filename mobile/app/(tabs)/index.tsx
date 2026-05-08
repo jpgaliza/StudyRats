@@ -217,7 +217,7 @@ export default function Dashboard() {
                     </View>
                   ) : (
                     <View style={styles.groupCodeBadge}>
-                      <Text style={styles.groupCodeLabel}>Code</Text>
+                      <Text style={styles.groupCodeLabel}>Código</Text>
                       <Text style={styles.groupCodeValue}>{group.code}</Text>
                     </View>
                   )}
@@ -233,9 +233,9 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* Recent Activity Feed */}
+        {/* Atividade Recente */}
         <View style={[styles.card, { marginBottom: 100 }]}>
-          <Text style={styles.cardTitle}>Recent Activity</Text>
+          <Text style={styles.cardTitle}>Atividade Recente</Text>
           <View style={styles.activityList}>
             {recentActivity.map((activity) => (
               <View key={activity.id} style={styles.activityItem}>
@@ -246,9 +246,9 @@ export default function Dashboard() {
                 <View style={styles.activityContent}>
                   <Text style={styles.activityText}>
                     <Text style={styles.activityName}>{activity.userName}</Text>{" "}
-                    checked in:{" "}
+                    fez check-in em:{" "}
                     <Text style={styles.activityDuration}>
-                      {activity.duration} of {activity.subject}
+                      {activity.duration} de {activity.subject}
                     </Text>
                   </Text>
                   {activity.note && (
@@ -279,9 +279,9 @@ export default function Dashboard() {
             style={styles.modalContent}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={styles.modalTitle}>Select a Group</Text>
+            <Text style={styles.modalTitle}>Selecionar grupo</Text>
             <Text style={styles.modalSubtitle}>
-              Choose which group to check in for
+              Escolha para qual grupo registrar o check-in
             </Text>
             <View style={styles.modalButtons}>
               {groups.map((group) => (
