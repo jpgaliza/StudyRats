@@ -51,7 +51,7 @@ export function CheckInModal({
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.header}>
                 <View>
-                  <Text style={styles.title}>Study Check-In</Text>
+                  <Text style={styles.title}>Check-in de Estudo</Text>
                   {groupName && (
                     <Text style={styles.groupName}>{groupName}</Text>
                   )}
@@ -64,39 +64,36 @@ export function CheckInModal({
               <View style={styles.form}>
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>
-                    Subject / Topic <Text style={styles.required}>*</Text>
+                    Assunto / Tópico <Text style={styles.required}>*</Text>
                   </Text>
                   <TextInput
                     style={styles.input}
                     value={subject}
                     onChangeText={setSubject}
-                    placeholder="e.g., Calculus I - Chapter 5"
+                    placeholder="ex: Cálculo I - Capítulo 5"
                     placeholderTextColor="#9ca3af"
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>
-                    Photo <Text style={styles.required}>*</Text>
+                    Foto <Text style={styles.required}>*</Text>
                   </Text>
                   <Pressable style={styles.uploadButton}>
-                    <Upload
-                      size={20}
-                      color="#6b7280"
-                    />
+                    <Upload size={20} color="#6b7280" />
                     <Text style={styles.uploadText}>
-                      Upload study session photo
+                      Carregar foto da sessão de estudo
                     </Text>
                   </Pressable>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Note (Optional)</Text>
+                  <Text style={styles.label}>Nota (Opcional)</Text>
                   <TextInput
                     style={[styles.input, styles.textArea]}
                     value={note}
                     onChangeText={setNote}
-                    placeholder="How did it go? Any insights?"
+                    placeholder="Como foi? Alguma ideia?"
                     placeholderTextColor="#9ca3af"
                     multiline
                     numberOfLines={3}
@@ -111,7 +108,7 @@ export function CheckInModal({
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <Text style={styles.submitText}>Confirm Check-In</Text>
+                    <Text style={styles.submitText}>Confirmar Check-in</Text>
                   </LinearGradient>
                 </Pressable>
               </View>
@@ -121,9 +118,9 @@ export function CheckInModal({
               <View style={styles.successIcon}>
                 <Check size={48} color="#fff" />
               </View>
-              <Text style={styles.successTitle}>Check-In Recorded!</Text>
+              <Text style={styles.successTitle}>Check-in Registrado!</Text>
               <Text style={styles.successMessage}>
-                Keep the grind going! 🔥
+                Continue com a rotina! 🔥
               </Text>
             </View>
           )}

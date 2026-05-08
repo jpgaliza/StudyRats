@@ -20,13 +20,25 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert("Missing data", "Please fill email and password.");
+    const newErrors: { email?: string; password?: string } = {};
+    if (!email.trim()) {
+      newErrors.email = "Por favor, preencha este campo.";
+    }
+    if (!password) {
+      newErrors.password = "Por favor, preencha este campo.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
+    setErrors({});
     try {
       setIsLoading(true);
       const response = await login({
@@ -38,8 +50,8 @@ export default function Login() {
       router.replace("/(tabs)");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to login.";
-      Alert.alert("Login error", message);
+        error instanceof Error ? error.message : "Falha ao fazer login.";
+      Alert.alert("Erro de login", message);
     } finally {
       setIsLoading(false);
     }
@@ -66,38 +78,53 @@ export default function Login() {
             <Text style={styles.title}>
               Study<Text style={styles.titleAccent}>Rats</Text>
             </Text>
-            <Text style={styles.subtitle}>Grind together. Win together.</Text>
+            <Text style={styles.subtitle}>Estudem juntos. Vençam juntos.</Text>
           </View>
 
           {/* Login Form */}
           <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>Welcome Back</Text>
+            <Text style={styles.formTitle}>Bem-vindo de volta</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.email ? styles.inputError : null]}
                 value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor="#9ca3af"
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errors.email) {
+                    setErrors((prev) => ({ ...prev, email: undefined }));
+                  }
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
               />
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>Senha</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  errors.password ? styles.inputError : null,
+                ]}
                 value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#9ca3af"
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) {
+                    setErrors((prev) => ({ ...prev, password: undefined }));
+                  }
+                }}
                 secureTextEntry
                 autoComplete="password"
               />
+              {errors.password && (
+                <Text style={styles.errorText}>{errors.password}</Text>
+              )}
             </View>
 
             <Pressable
@@ -115,16 +142,16 @@ export default function Login() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>
-                  {isLoading ? "Logging in..." : "Log In"}
+                  {isLoading ? "Entrando..." : "Entrar"}
                 </Text>
               </LinearGradient>
             </Pressable>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Text style={styles.footerText}>Não tem uma conta? </Text>
               <Link href="/(auth)/register" asChild>
                 <Pressable>
-                  <Text style={styles.link}>Create Account</Text>
+                  <Text style={styles.link}>Criar conta</Text>
                 </Pressable>
               </Link>
             </View>
@@ -215,6 +242,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: "#111827",
+  },
+  inputError: {
+    borderColor: "red",
+  },
+  errorText: {
+    color: "red",
+    marginTop: 4,
   },
   button: {
     marginTop: 24,

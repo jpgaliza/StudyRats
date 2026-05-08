@@ -30,6 +30,10 @@ type GroupItem = {
   name: string;
   code: string;
   memberCount: number;
+  description?: string;
+  ownerId?: string;
+  challengeDurationDays?: number;
+  challengeEndsAt?: string;
   topMembers: (typeof studyGroups)[number]["topMembers"];
 };
 
@@ -38,6 +42,8 @@ export default function StudyGroups() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newChallengeDurationDays, setNewChallengeDurationDays] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
@@ -54,6 +60,10 @@ export default function StudyGroups() {
         id: String(group.id),
         name: group.name,
         code: group.invite_code,
+        description: group.description ?? undefined,
+        ownerId: group.owner_id ? String(group.owner_id) : undefined,
+        challengeDurationDays: group.challenge_duration_days ?? undefined,
+        challengeEndsAt: group.challenge_ends_at ?? undefined,
         memberCount: group.users_count ?? 0,
         topMembers: mockMatch?.topMembers ?? [],
       };
@@ -72,8 +82,8 @@ export default function StudyGroups() {
       setGroups(mapGroups(apiGroups));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to load groups.";
-      Alert.alert("Groups error", message);
+        error instanceof Error ? error.message : "Falha ao carregar grupos.";
+      Alert.alert("Erro nos grupos", message);
     } finally {
       setIsLoadingGroups(false);
     }
@@ -85,21 +95,60 @@ export default function StudyGroups() {
 
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
-      Alert.alert("Missing data", "Please provide a group name.");
+      Alert.alert("Dados ausentes", "Forneça um nome para o grupo.");
+      return;
+    }
+
+    const challengeDurationDays = Number.parseInt(
+      newChallengeDurationDays.trim(),
+      10,
+    );
+
+    if (
+      !Number.isInteger(challengeDurationDays) ||
+      challengeDurationDays <= 0
+    ) {
+      Alert.alert(
+        "Dados ausentes",
+        "Forneça um tempo de desafio válido em dias.",
+      );
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await createGroup({ name: newGroupName.trim() });
-      Alert.alert("Success", `Group "${newGroupName.trim()}" created!`);
+      const createdGroup = await createGroup({
+        name: newGroupName.trim(),
+        description: newGroupDescription.trim() || undefined,
+        challengeDurationDays,
+      });
+
+      setGroups((current) => [
+        {
+          id: String(createdGroup.id),
+          name: createdGroup.name,
+          code: createdGroup.invite_code,
+          description: newGroupDescription.trim() || undefined,
+          ownerId: String(createdGroup.owner_id),
+          challengeDurationDays,
+          challengeEndsAt: createdGroup.challenge_ends_at ?? undefined,
+          memberCount: 1,
+          topMembers: [],
+        },
+        ...current,
+      ]);
+
+      Alert.alert("Sucesso", `Grupo "${newGroupName.trim()}" criado!`);
       setNewGroupName("");
+      setNewGroupDescription("");
+      setNewChallengeDurationDays("");
       setShowCreateModal(false);
-      await loadGroups();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Could not create group.";
-      Alert.alert("Create group error", message);
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar o grupo.";
+      Alert.alert("Erro ao criar grupo", message);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,25 +156,28 @@ export default function StudyGroups() {
 
   const handleJoinGroup = async () => {
     if (!joinCode.trim()) {
-      Alert.alert("Missing data", "Please provide a group code.");
+      Alert.alert("Dados ausentes", "Forneça um código de grupo.");
       return;
     }
 
     try {
       setIsSubmitting(true);
       await joinGroup({ code: joinCode.trim().toUpperCase() });
-      Alert.alert("Success", `Joined group with code: ${joinCode.trim()}`);
+      Alert.alert(
+        "Sucesso",
+        `Entrou no grupo com o código: ${joinCode.trim()}`,
+      );
       setJoinCode("");
       setShowJoinModal(false);
       await loadGroups();
     } catch (error) {
       const message =
         error instanceof ApiRequestError && error.status === 404
-          ? "Invalid group code."
+          ? "Código de grupo inválido."
           : error instanceof Error
             ? error.message
-            : "Could not join group.";
-      Alert.alert("Join group error", message);
+            : "Não foi possível entrar no grupo.";
+      Alert.alert("Erro ao entrar no grupo", message);
     } finally {
       setIsSubmitting(false);
     }
@@ -140,9 +192,9 @@ export default function StudyGroups() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
-            Study <Text style={styles.headerAccent}>Groups</Text>
+            Grupos de <Text style={styles.headerAccent}>Estudo</Text>
           </Text>
-          <Text style={styles.headerSubtitle}>Grind with your squad</Text>
+          <Text style={styles.headerSubtitle}>Estude com seu esquadrão</Text>
         </View>
 
         {/* Action Buttons */}
@@ -161,7 +213,7 @@ export default function StudyGroups() {
               end={{ x: 1, y: 0 }}
             >
               <Plus size={20} color="#fff" />
-              <Text style={styles.createButtonText}>Create Group</Text>
+              <Text style={styles.createButtonText}>Criar Grupo</Text>
             </LinearGradient>
           </Pressable>
 
@@ -172,18 +224,22 @@ export default function StudyGroups() {
             ]}
             onPress={() => setShowJoinModal(true)}
           >
-            <ArrowRight size={20} color="#111827" />
-            <Text style={styles.joinButtonText}>Join via Code</Text>
+            <View style={styles.joinButtonContent}>
+              <ArrowRight size={20} color="#111827" />
+              <Text style={styles.joinButtonText} numberOfLines={1}>
+                Entrar
+              </Text>
+            </View>
           </Pressable>
         </View>
 
         {/* Groups List */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Groups</Text>
+          <Text style={styles.sectionTitle}>Seus Grupos</Text>
           {isLoadingGroups ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator color="#0ea5e9" />
-              <Text style={styles.loadingText}>Loading groups...</Text>
+              <Text style={styles.loadingText}>Carregando grupos...</Text>
             </View>
           ) : (
             <View style={styles.groupsGrid}>
@@ -194,8 +250,8 @@ export default function StudyGroups() {
                   onPress={() => {
                     if (group.topMembers.length === 0) {
                       Alert.alert(
-                        "Leaderboard mocked",
-                        "This group has no backend ranking data yet.",
+                        "Leaderboard simulado",
+                        "Este grupo ainda não tem dados de classificação do backend.",
                       );
                       return;
                     }
@@ -215,6 +271,18 @@ export default function StudyGroups() {
                           {group.memberCount} members
                         </Text>
                       </View>
+                      {group.description ? (
+                        <Text style={styles.groupDescription} numberOfLines={2}>
+                          {group.description}
+                        </Text>
+                      ) : null}
+                      {group.challengeDurationDays ? (
+                        <View style={styles.challengePill}>
+                          <Text style={styles.challengePillText}>
+                            {group.challengeDurationDays} day challenge
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     <View style={styles.groupCode}>
                       <Text style={styles.codeLabel}>Code</Text>
@@ -224,7 +292,9 @@ export default function StudyGroups() {
 
                   <View style={styles.leaderboardPreview}>
                     <View style={styles.previewHeader}>
-                      <Text style={styles.previewTitle}>🏆 Top 3 Leaderboard</Text>
+                      <Text style={styles.previewTitle}>
+                        🏆 Top 3 Leaderboard
+                      </Text>
                     </View>
                     {group.topMembers.length > 0 ? (
                       <View style={styles.topMembers}>
@@ -255,7 +325,8 @@ export default function StudyGroups() {
                       </View>
                     ) : (
                       <Text style={styles.mockNotice}>
-                        Ranking still mocked for groups without check-in endpoints.
+                        Ranking still mocked for groups without check-in
+                        endpoints.
                       </Text>
                     )}
                   </View>
@@ -265,7 +336,8 @@ export default function StudyGroups() {
               {!groups.length && (
                 <View style={styles.emptyBox}>
                   <Text style={styles.emptyText}>
-                    You are not in any group yet. Create one or join via code.
+                    Você ainda não está em nenhum grupo. Crie um ou entre com um
+                    código.
                   </Text>
                 </View>
               )}
@@ -290,20 +362,45 @@ export default function StudyGroups() {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Group</Text>
+              <Text style={styles.modalTitle}>Criar Grupo</Text>
               <Pressable onPress={() => setShowCreateModal(false)}>
                 <X size={24} color="#9ca3af" />
               </Pressable>
             </View>
             <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Group Name</Text>
+              <Text style={styles.inputLabel}>Nome do grupo</Text>
               <TextInput
                 style={styles.input}
                 value={newGroupName}
                 onChangeText={setNewGroupName}
-                placeholder="e.g., Math Study Squad"
+                placeholder="ex: Esquadrão de Matemática"
                 placeholderTextColor="#9ca3af"
               />
+              <Text style={styles.inputLabel}>Descrição (opcional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newGroupDescription}
+                onChangeText={setNewGroupDescription}
+                placeholder="ex: Estudamos juntos todas as noites"
+                placeholderTextColor="#9ca3af"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+              <Text style={styles.inputLabel}>
+                Tempo de desafio (dias) <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={newChallengeDurationDays}
+                onChangeText={setNewChallengeDurationDays}
+                placeholder="ex: 7"
+                placeholderTextColor="#9ca3af"
+                keyboardType="number-pad"
+              />
+              <Text style={styles.helperText}>
+                O tempo é obrigatório e define o ciclo do desafio atual.
+              </Text>
               <Pressable
                 style={({ pressed }) => [
                   styles.modalButton,
@@ -319,7 +416,7 @@ export default function StudyGroups() {
                   end={{ x: 1, y: 0 }}
                 >
                   <Text style={styles.modalButtonText}>
-                    {isSubmitting ? "Creating..." : "Create Group"}
+                    {isSubmitting ? "Criando..." : "Criar Grupo"}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -344,18 +441,18 @@ export default function StudyGroups() {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Join Group</Text>
+              <Text style={styles.modalTitle}>Entrar no Grupo</Text>
               <Pressable onPress={() => setShowJoinModal(false)}>
                 <X size={24} color="#9ca3af" />
               </Pressable>
             </View>
             <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Group Code</Text>
+              <Text style={styles.inputLabel}>Código do grupo</Text>
               <TextInput
                 style={[styles.input, styles.codeInput]}
                 value={joinCode}
                 onChangeText={(text) => setJoinCode(text.toUpperCase())}
-                placeholder="e.g., CS2024"
+                placeholder="ex: CS2024"
                 placeholderTextColor="#9ca3af"
                 autoCapitalize="characters"
               />
@@ -374,7 +471,7 @@ export default function StudyGroups() {
                   end={{ x: 1, y: 0 }}
                 >
                   <Text style={styles.modalButtonText}>
-                    {isSubmitting ? "Joining..." : "Join Group"}
+                    {isSubmitting ? "Entrando..." : "Entrar"}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -420,6 +517,7 @@ const styles = StyleSheet.create({
   createButton: {
     flex: 1,
     borderRadius: 12,
+    backgroundColor: "#0284c7",
     overflow: "hidden",
     shadowColor: "#0ea5e9",
     shadowOffset: { width: 0, height: 4 },
@@ -433,6 +531,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 16,
     gap: 8,
+    borderRadius: 12,
+    overflow: "hidden",
   },
   createButtonText: {
     color: "#fff",
@@ -441,6 +541,7 @@ const styles = StyleSheet.create({
   },
   joinButton: {
     flex: 1,
+    overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -456,10 +557,22 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  joinButtonContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    gap: 8,
+    minWidth: 0,
+  },
   joinButtonText: {
     color: "#111827",
     fontSize: 16,
     fontWeight: "700",
+    flexShrink: 1,
+    minWidth: 0,
+    textAlign: "center",
   },
   buttonPressed: {
     opacity: 0.95,
@@ -511,6 +624,27 @@ const styles = StyleSheet.create({
   groupMembers: {
     fontSize: 14,
     color: "#6b7280",
+  },
+  groupDescription: {
+    fontSize: 13,
+    color: "#374151",
+    marginTop: 10,
+    lineHeight: 18,
+  },
+  challengePill: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    backgroundColor: "#eff6ff",
+    borderColor: "#bfdbfe",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  challengePillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0369a1",
   },
   groupCode: {
     backgroundColor: "#eff6ff",
@@ -651,6 +785,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: "#111827",
+  },
+  textArea: {
+    minHeight: 88,
+    paddingTop: 12,
+  },
+  required: {
+    color: "#0ea5e9",
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: -8,
   },
   codeInput: {
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",

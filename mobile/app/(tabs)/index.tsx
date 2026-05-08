@@ -49,14 +49,18 @@ export default function Dashboard() {
     }
 
     try {
-      const [meResponse, groupsResponse] = await Promise.all([me(), getGroups()]);
+      const [meResponse, groupsResponse] = await Promise.all([
+        me(),
+        getGroups(),
+      ]);
 
       setUserName(meResponse.name);
       setGroups(
         groupsResponse.map((group) => {
           const mockMatch = studyGroups.find(
             (mockGroup) =>
-              mockGroup.code === group.invite_code || mockGroup.name === group.name,
+              mockGroup.code === group.invite_code ||
+              mockGroup.name === group.name,
           );
 
           return {
@@ -72,8 +76,8 @@ export default function Dashboard() {
       const message =
         error instanceof Error
           ? error.message
-          : "Could not load dashboard data.";
-      Alert.alert("Dashboard error", message);
+          : "Não foi possível carregar os dados do painel.";
+      Alert.alert("Erro no painel", message);
     }
   }, [router]);
 
@@ -83,11 +87,11 @@ export default function Dashboard() {
 
   const formatTimeAgo = (date: Date) => {
     const hours = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours === 1) return "1h ago";
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 1) return "Agora mesmo";
+    if (hours === 1) return "1h atrás";
+    if (hours < 24) return `${hours}h atrás`;
     const days = Math.floor(hours / 24);
-    return days === 1 ? "1 day ago" : `${days} days ago`;
+    return days === 1 ? "1 dia atrás" : `${days} dias atrás`;
   };
 
   const handleCheckInClick = () => {
@@ -111,10 +115,10 @@ export default function Dashboard() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
-            Hey, <Text style={styles.headerName}>{userName}</Text>
+            Olá, <Text style={styles.headerName}>{userName}</Text>
           </Text>
           <Text style={styles.headerSubtitle}>
-            Ready to dominate today's grind?
+            Pronto para dominar a atividade de hoje?
           </Text>
         </View>
 
@@ -133,26 +137,30 @@ export default function Dashboard() {
             end={{ x: 1, y: 0 }}
           >
             <Zap size={24} color="#fff" />
-            <Text style={styles.checkInText}>Study Check-In</Text>
+            <Text style={styles.checkInText}>Check-in de Estudo</Text>
           </LinearGradient>
         </Pressable>
 
         {/* Quick Stats */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Stats</Text>
+          <Text style={styles.cardTitle}>Desempenho Atual</Text>
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, styles.statBoxOrange]}>
               <View style={styles.statHeader}>
                 <Flame size={20} color="#f97316" />
-                <Text style={styles.statLabel}>Current Streak</Text>
+                <Text style={styles.statLabel} numberOfLines={2}>
+                  Sequência Atual
+                </Text>
               </View>
               <Text style={styles.statValue}>{currentStreak}</Text>
-              <Text style={styles.statUnit}>days</Text>
+              <Text style={styles.statUnit}>dias</Text>
             </View>
             <View style={[styles.statBox, styles.statBoxGreen]}>
               <View style={styles.statHeader}>
                 <Clock size={20} color="#22c55e" />
-                <Text style={styles.statLabel}>This Week</Text>
+                <Text style={styles.statLabel} numberOfLines={2}>
+                  Esta Semana
+                </Text>
               </View>
               <Text style={styles.statValue}>24</Text>
               <Text style={styles.statUnit}>check-ins</Text>
@@ -163,10 +171,10 @@ export default function Dashboard() {
         {/* My Groups Preview */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>My Groups</Text>
+            <Text style={styles.cardTitle}>Meus Grupos</Text>
             <Link href="/(tabs)/groups" asChild>
               <Pressable>
-                <Text style={styles.viewAllLink}>View All</Text>
+                <Text style={styles.viewAllLink}>Ver Todos</Text>
               </Pressable>
             </Link>
           </View>
@@ -178,8 +186,8 @@ export default function Dashboard() {
                 onPress={() => {
                   if (group.topMembers.length === 0) {
                     Alert.alert(
-                      "Leaderboard mocked",
-                      "This group has no backend ranking data yet.",
+                      "Leaderboard simulado",
+                      "Este grupo ainda não tem dados de classificação do backend.",
                     );
                     return;
                   }
@@ -194,7 +202,7 @@ export default function Dashboard() {
                   <View>
                     <Text style={styles.groupName}>{group.name}</Text>
                     <Text style={styles.groupMembers}>
-                      {group.memberCount} members
+                      {group.memberCount} membros
                     </Text>
                   </View>
                   {group.topMembers.length > 0 ? (
@@ -209,7 +217,7 @@ export default function Dashboard() {
                     </View>
                   ) : (
                     <View style={styles.groupCodeBadge}>
-                      <Text style={styles.groupCodeLabel}>Code</Text>
+                      <Text style={styles.groupCodeLabel}>Código</Text>
                       <Text style={styles.groupCodeValue}>{group.code}</Text>
                     </View>
                   )}
@@ -218,15 +226,16 @@ export default function Dashboard() {
             ))}
             {!groups.length && (
               <Text style={styles.emptyGroupsText}>
-                No groups yet. Create or join one from the Groups tab.
+                Ainda não existem grupos. Crie um ou participe de um na aba
+                Grupos.
               </Text>
             )}
           </View>
         </View>
 
-        {/* Recent Activity Feed */}
+        {/* Atividade Recente */}
         <View style={[styles.card, { marginBottom: 100 }]}>
-          <Text style={styles.cardTitle}>Recent Activity</Text>
+          <Text style={styles.cardTitle}>Atividade Recente</Text>
           <View style={styles.activityList}>
             {recentActivity.map((activity) => (
               <View key={activity.id} style={styles.activityItem}>
@@ -237,9 +246,9 @@ export default function Dashboard() {
                 <View style={styles.activityContent}>
                   <Text style={styles.activityText}>
                     <Text style={styles.activityName}>{activity.userName}</Text>{" "}
-                    checked in:{" "}
+                    fez check-in em:{" "}
                     <Text style={styles.activityDuration}>
-                      {activity.duration} of {activity.subject}
+                      {activity.duration} de {activity.subject}
                     </Text>
                   </Text>
                   {activity.note && (
@@ -270,9 +279,9 @@ export default function Dashboard() {
             style={styles.modalContent}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={styles.modalTitle}>Select a Group</Text>
+            <Text style={styles.modalTitle}>Selecionar grupo</Text>
             <Text style={styles.modalSubtitle}>
-              Choose which group to check in for
+              Escolha para qual grupo registrar o check-in
             </Text>
             <View style={styles.modalButtons}>
               {groups.map((group) => (
@@ -408,10 +417,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginBottom: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   statLabel: {
     fontSize: 12,
     color: "#6b7280",
+    flexShrink: 1,
+    minWidth: 0,
   },
   statValue: {
     fontSize: 28,
