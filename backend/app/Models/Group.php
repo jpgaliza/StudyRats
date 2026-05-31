@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\CheckIn;
 use Illuminate\Support\Str;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +15,13 @@ class Group extends Model
     public function users()
     {
         return $this->belongsToMany(User::class);
+    }
+
+    public function bannedUsers()
+    {
+        return $this->belongsToMany(User::class, 'group_bans')
+            ->withPivot('banned_by')
+            ->withTimestamps();
     }
 
     function generateInviteCode() {
@@ -32,5 +40,10 @@ class Group extends Model
     public function members()
     {
         return $this->belongsToMany(User::class);
+    }
+
+    public function checkIns()
+    {
+        return $this->hasMany(CheckIn::class);
     }
 }

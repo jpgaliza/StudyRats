@@ -7,8 +7,8 @@ export default function LeaderboardLayout() {
         name="[id]"
         options={{
           headerShown: true,
-          headerTitle: "Leaderboard",
-          headerBackTitle: "Back",
+          headerTitle: "Ranking",
+          headerBackTitle: "Voltar",
         }}
       />
     </Stack>

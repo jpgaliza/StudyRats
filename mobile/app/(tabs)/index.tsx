@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -8,25 +8,38 @@ import {
   Image,
   Modal,
   Alert,
+  type DimensionValue,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Zap, Flame, Clock } from "lucide-react-native";
-import { Link, useRouter } from "expo-router";
-import {
-  currentUser,
-  currentStreak,
-  recentActivity,
-  studyGroups,
-} from "@/data/mockData";
+import { Link, useFocusEffect, useRouter } from "expo-router";
 import { CheckInModal } from "@/components/CheckInModal";
-import { getGroups, getSessionToken, getSessionUser, me } from "@/lib/api";
+import Login from "@/app/(auth)/login";
+import {
+  getDashboard,
+  getFeedCheckIns,
+  getGroups,
+  getLeaderboardPreview,
+  getSessionToken,
+  getSessionUser,
+  me,
+  resolveStorageUrl,
+  setSession,
+} from "@/lib/api";
+
+type GroupPreviewTop = {
+  userId: string;
+  name: string;
+  avatar: string;
+  checkInCount: number;
+};
 
 type GroupPreview = {
   id: string;
   name: string;
   memberCount: number;
   code: string;
-  topMembers: (typeof studyGroups)[number]["topMembers"];
+  topMembers: GroupPreviewTop[];
 };
 
 export default function Dashboard() {
@@ -34,12 +47,21 @@ export default function Dashboard() {
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
-  const [userName, setUserName] = useState(currentUser.name);
+  const [userName, setUserName] = useState("Estudante");
   const [groups, setGroups] = useState<GroupPreview[]>([]);
+  const [streakDays, setStreakDays] = useState(0);
+  const [weeklyCheckIns, setWeeklyCheckIns] = useState(0);
+  const [topicBreakdown, setTopicBreakdown] = useState<
+    { topic: string; check_ins_count: number }[]
+  >([]);
+  const [feedActivities, setFeedActivities] =
+    useState<Awaited<ReturnType<typeof getFeedCheckIns>>>([]);
+  const [hasSession, setHasSession] = useState(Boolean(getSessionToken()));
 
   const loadHomeData = useCallback(async () => {
-    if (!getSessionToken()) {
-      router.replace("/(auth)/login");
+    const token = getSessionToken();
+    if (!token) {
+      setHasSession(false);
       return;
     }
 
@@ -49,45 +71,90 @@ export default function Dashboard() {
     }
 
     try {
-      const [meResponse, groupsResponse] = await Promise.all([me(), getGroups()]);
+      const [meResponse, groupsResponse, dashboard, feedItems] =
+        await Promise.all([
+          me(),
+          getGroups(),
+          getDashboard().catch(() => null),
+          getFeedCheckIns().catch(() => []),
+      ]);
 
       setUserName(meResponse.name);
+      setSession(token, meResponse);
+      if (dashboard) {
+        setStreakDays(dashboard.streak_days);
+        setWeeklyCheckIns(dashboard.weekly_check_ins);
+        setTopicBreakdown(dashboard.topic_breakdown);
+      }
+
+      const previewRows = await Promise.all(
+        groupsResponse.map(async (group) => {
+          try {
+            const preview = await getLeaderboardPreview(group.id);
+            return {
+              id: group.id,
+              members: preview.top_members,
+            };
+          } catch {
+            return { id: group.id, members: [] };
+          }
+        }),
+      );
+
+      const previewMap = Object.fromEntries(
+        previewRows.map((row) => [String(row.id), row.members]),
+      );
+
       setGroups(
         groupsResponse.map((group) => {
-          const mockMatch = studyGroups.find(
-            (mockGroup) =>
-              mockGroup.code === group.invite_code || mockGroup.name === group.name,
-          );
+          const raw = previewMap[String(group.id)] ?? [];
+          const topMembers: GroupPreviewTop[] = raw.slice(0, 3).map((m) => ({
+            userId: m.user_id,
+            name: m.name,
+            avatar: m.avatar,
+            checkInCount: m.check_in_count,
+          }));
 
           return {
             id: String(group.id),
             name: group.name,
             memberCount: group.users_count ?? 0,
             code: group.invite_code,
-            topMembers: mockMatch?.topMembers ?? [],
+            topMembers,
           };
         }),
       );
+
+      setFeedActivities(feedItems);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "Could not load dashboard data.";
-      Alert.alert("Dashboard error", message);
+          : "Nao foi possivel carregar os dados da tela inicial.";
+      Alert.alert("Erro no inicio", message);
     }
-  }, [router]);
+  }, []);
 
-  useEffect(() => {
-    loadHomeData();
-  }, [loadHomeData]);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasSession) {
+        void loadHomeData();
+      }
+    }, [hasSession, loadHomeData]),
+  );
 
-  const formatTimeAgo = (date: Date) => {
+  if (!hasSession) {
+    return <Login onLoggedIn={() => setHasSession(true)} />;
+  }
+
+  const formatTimeAgo = (iso: string | Date) => {
+    const date = typeof iso === "string" ? new Date(iso) : iso;
     const hours = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours === 1) return "1h ago";
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 1) return "Agora mesmo";
+    if (hours === 1) return "Ha 1h";
+    if (hours < 24) return `Ha ${hours}h`;
     const days = Math.floor(hours / 24);
-    return days === 1 ? "1 day ago" : `${days} days ago`;
+    return days === 1 ? "Ha 1 dia" : `Ha ${days} dias`;
   };
 
   const handleCheckInClick = () => {
@@ -111,10 +178,10 @@ export default function Dashboard() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
-            Hey, <Text style={styles.headerName}>{userName}</Text>
+            Ola, <Text style={styles.headerName}>{userName}</Text>
           </Text>
           <Text style={styles.headerSubtitle}>
-            Ready to dominate today's grind?
+            Pronto para dominar os estudos de hoje?
           </Text>
         </View>
 
@@ -133,40 +200,75 @@ export default function Dashboard() {
             end={{ x: 1, y: 0 }}
           >
             <Zap size={24} color="#fff" />
-            <Text style={styles.checkInText}>Study Check-In</Text>
+            <Text style={styles.checkInText}>Check-in de estudo</Text>
           </LinearGradient>
         </Pressable>
 
         {/* Quick Stats */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Stats</Text>
+          <Text style={styles.cardTitle}>Resumo rapido</Text>
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, styles.statBoxOrange]}>
               <View style={styles.statHeader}>
                 <Flame size={20} color="#f97316" />
-                <Text style={styles.statLabel}>Current Streak</Text>
+                <Text style={styles.statLabel}>Sequencia atual</Text>
               </View>
-              <Text style={styles.statValue}>{currentStreak}</Text>
-              <Text style={styles.statUnit}>days</Text>
+              <Text style={styles.statValue}>{streakDays}</Text>
+              <Text style={styles.statUnit}>dias</Text>
             </View>
             <View style={[styles.statBox, styles.statBoxGreen]}>
               <View style={styles.statHeader}>
                 <Clock size={20} color="#22c55e" />
-                <Text style={styles.statLabel}>This Week</Text>
+                <Text style={styles.statLabel}>Nesta semana</Text>
               </View>
-              <Text style={styles.statValue}>24</Text>
+              <Text style={styles.statValue}>{weeklyCheckIns}</Text>
               <Text style={styles.statUnit}>check-ins</Text>
             </View>
           </View>
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Assuntos em foco</Text>
+          {topicBreakdown.length ? (
+            <View style={styles.topicList}>
+              {topicBreakdown.slice(0, 5).map((item) => {
+                const max = Math.max(
+                  ...topicBreakdown.map((topic) => topic.check_ins_count),
+                  1,
+                );
+                const width =
+                  `${Math.max(14, (item.check_ins_count / max) * 100)}%` as DimensionValue;
+                return (
+                  <View key={item.topic} style={styles.topicRow}>
+                    <View style={styles.topicHeader}>
+                      <Text style={styles.topicName} numberOfLines={1}>
+                        {item.topic}
+                      </Text>
+                      <Text style={styles.topicCount}>
+                        {item.check_ins_count} check-ins
+                      </Text>
+                    </View>
+                    <View style={styles.topicTrack}>
+                      <View style={[styles.topicBar, { width }]} />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.emptyGroupsText}>
+              Seus assuntos aparecem aqui depois dos primeiros check-ins.
+            </Text>
+          )}
+        </View>
+
         {/* My Groups Preview */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>My Groups</Text>
-            <Link href="/(tabs)/groups" asChild>
+            <Text style={styles.cardTitle}>Meus grupos</Text>
+            <Link href="/groups" asChild>
               <Pressable>
-                <Text style={styles.viewAllLink}>View All</Text>
+                <Text style={styles.viewAllLink}>Ver todos</Text>
               </Pressable>
             </Link>
           </View>
@@ -176,25 +278,17 @@ export default function Dashboard() {
                 key={group.id}
                 style={styles.groupItem}
                 onPress={() => {
-                  if (group.topMembers.length === 0) {
-                    Alert.alert(
-                      "Leaderboard mocked",
-                      "This group has no backend ranking data yet.",
-                    );
-                    return;
-                  }
-
                   router.push({
-                    pathname: "/(tabs)/leaderboard",
+                    pathname: "/leaderboard",
                     params: { groupId: group.id },
-                  });
+                  } as never);
                 }}
               >
                 <View style={styles.groupItemContent}>
                   <View>
                     <Text style={styles.groupName}>{group.name}</Text>
                     <Text style={styles.groupMembers}>
-                      {group.memberCount} members
+                      {group.memberCount} membros
                     </Text>
                   </View>
                   {group.topMembers.length > 0 ? (
@@ -209,7 +303,7 @@ export default function Dashboard() {
                     </View>
                   ) : (
                     <View style={styles.groupCodeBadge}>
-                      <Text style={styles.groupCodeLabel}>Code</Text>
+                      <Text style={styles.groupCodeLabel}>Codigo</Text>
                       <Text style={styles.groupCodeValue}>{group.code}</Text>
                     </View>
                   )}
@@ -218,7 +312,7 @@ export default function Dashboard() {
             ))}
             {!groups.length && (
               <Text style={styles.emptyGroupsText}>
-                No groups yet. Create or join one from the Groups tab.
+                Nenhum grupo ainda. Crie ou entre em um na aba Grupos.
               </Text>
             )}
           </View>
@@ -226,31 +320,36 @@ export default function Dashboard() {
 
         {/* Recent Activity Feed */}
         <View style={[styles.card, { marginBottom: 100 }]}>
-          <Text style={styles.cardTitle}>Recent Activity</Text>
+          <Text style={styles.cardTitle}>Atividade recente</Text>
           <View style={styles.activityList}>
-            {recentActivity.map((activity) => (
+            {feedActivities.map((activity) => (
               <View key={activity.id} style={styles.activityItem}>
                 <Image
-                  source={{ uri: activity.userAvatar }}
+                  source={{
+                    uri: resolveStorageUrl(activity.user.avatar) || activity.user.avatar,
+                  }}
                   style={styles.activityAvatar}
                 />
                 <View style={styles.activityContent}>
                   <Text style={styles.activityText}>
-                    <Text style={styles.activityName}>{activity.userName}</Text>{" "}
-                    checked in:{" "}
-                    <Text style={styles.activityDuration}>
-                      {activity.duration} of {activity.subject}
-                    </Text>
+                    <Text style={styles.activityName}>{activity.user.name}</Text>{" "}
+                    fez check-in em{" "}
+                    <Text style={styles.activityDuration}>{activity.topic}</Text>
                   </Text>
-                  {activity.note && (
-                    <Text style={styles.activityNote}>"{activity.note}"</Text>
-                  )}
+                  {activity.note ? (
+                    <Text style={styles.activityNote}>{`"${activity.note}"`}</Text>
+                  ) : null}
                   <Text style={styles.activityTime}>
-                    {formatTimeAgo(activity.timestamp)}
+                    {formatTimeAgo(activity.created_at)}
                   </Text>
                 </View>
               </View>
             ))}
+            {!feedActivities.length ? (
+              <Text style={styles.emptyGroupsText}>
+                Nenhuma atividade nos seus grupos ainda.
+              </Text>
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -270,9 +369,9 @@ export default function Dashboard() {
             style={styles.modalContent}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={styles.modalTitle}>Select a Group</Text>
+            <Text style={styles.modalTitle}>Selecione um grupo</Text>
             <Text style={styles.modalSubtitle}>
-              Choose which group to check in for
+              Escolha em qual grupo voce vai registrar o check-in
             </Text>
             <View style={styles.modalButtons}>
               {groups.map((group) => (
@@ -296,7 +395,9 @@ export default function Dashboard() {
       <CheckInModal
         isOpen={isCheckInOpen}
         onClose={() => setIsCheckInOpen(false)}
+        groupId={selectedGroupId}
         groupName={selectedGroup?.name}
+        onSubmitted={loadHomeData}
       />
     </LinearGradient>
   );
@@ -388,6 +489,39 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     gap: 16,
+  },
+  topicList: {
+    gap: 14,
+  },
+  topicRow: {
+    gap: 8,
+  },
+  topicHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  topicName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  topicCount: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
+  topicTrack: {
+    height: 10,
+    backgroundColor: "#e0f2fe",
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  topicBar: {
+    height: "100%",
+    backgroundColor: "#0ea5e9",
+    borderRadius: 999,
   },
   statBox: {
     flex: 1,

@@ -26,6 +26,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O StudyRats precisa das suas fotos para comprovar o check-in de estudo.",
+          "cameraPermission": "O StudyRats pode usar a camera para comprovar o check-in de estudo."
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -41,8 +48,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     }
   }
 }

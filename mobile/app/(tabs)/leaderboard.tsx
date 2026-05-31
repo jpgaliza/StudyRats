@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -6,24 +6,92 @@ import {
   ScrollView,
   Image,
   Pressable,
-  Modal,
+  ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { AlertCircle, Zap, Trophy, Medal } from "lucide-react-native";
-import { useLocalSearchParams } from "expo-router";
-import { studyGroups, currentUser } from "@/data/mockData";
+import {
+  AlertCircle,
+  Zap,
+  Trophy,
+  Medal,
+} from "lucide-react-native";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 import { CheckInModal } from "@/components/CheckInModal";
+import {
+  getLeaderboard,
+  getSessionToken,
+  getSessionUser,
+  type LeaderboardMember,
+} from "@/lib/api";
+
+type Period = "daily" | "weekly" | "monthly";
+
+const periodLabel: Record<Period, string> = {
+  daily: "dia",
+  weekly: "semana",
+  monthly: "mes",
+};
 
 export default function Leaderboard() {
   const params = useLocalSearchParams<{ groupId?: string }>();
+  const router = useRouter();
+  const groupId = params.groupId;
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
+  const [period, setPeriod] = useState<Period>("monthly");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [members, setMembers] = useState<LeaderboardMember[]>([]);
+  const [topThree, setTopThree] = useState<LeaderboardMember[]>([]);
 
-  // Get groupId from params, or default to first group
-  const groupId = params.groupId || studyGroups[0]?.id;
-  const group = studyGroups.find((g) => g.id === groupId);
+  const currentUserId = getSessionUser()?.id;
 
-  if (!group) {
+  const load = useCallback(async (silent = false) => {
+    if (!groupId || !getSessionToken()) {
+      if (!getSessionToken()) router.replace("/login" as never);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (!silent) setLoading(true);
+      const data = await getLeaderboard(groupId, period);
+      setGroupName(data.group.name);
+      setMembers(data.members);
+      setTopThree(
+        data.top_members.length ? data.top_members : data.members.slice(0, 3),
+      );
+      setLastUpdatedAt(new Date());
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Nao foi possivel carregar o ranking.";
+      Alert.alert("Ranking", message);
+      setMembers([]);
+      setTopThree([]);
+    } finally {
+      if (!silent) setLoading(false);
+      setRefreshing(false);
+    }
+  }, [groupId, router, period]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+      const interval = setInterval(() => {
+        void load(true);
+      }, 20000);
+      return () => clearInterval(interval);
+    }, [load]),
+  );
+
+  if (!groupId) {
     return (
       <LinearGradient
         colors={["#eff6ff", "#ffffff", "#f0f9ff"]}
@@ -31,9 +99,9 @@ export default function Leaderboard() {
       >
         <View style={styles.errorContainer}>
           <AlertCircle size={64} color="#9ca3af" />
-          <Text style={styles.errorText}>No groups found</Text>
+          <Text style={styles.errorText}>Nenhum grupo selecionado</Text>
           <Text style={styles.errorSubtext}>
-            Join a group to see the leaderboard
+            Abra o ranking pela aba Inicio ou Grupos.
           </Text>
         </View>
       </LinearGradient>
@@ -48,21 +116,66 @@ export default function Leaderboard() {
     return styles.normalRow;
   };
 
+  const periodChip = (value: Period, label: string) => (
+    <Pressable
+      key={value}
+      onPress={() => setPeriod(value)}
+      style={[styles.periodChip, period === value && styles.periodChipActive]}
+    >
+      <Text
+        style={[
+          styles.periodChipText,
+          period === value && styles.periodChipTextActive,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    void load(true);
+  };
+
   return (
     <LinearGradient
       colors={["#eff6ff", "#ffffff", "#f0f9ff"]}
       style={styles.gradient}
     >
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0ea5e9"
+          />
+        }
+      >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{group.name}</Text>
-          <Text style={styles.headerSubtitle}>
-            Rankings • {group.memberCount} members
+          <Text style={styles.headerTitle}>
+            {groupName || "Carregando..."}
           </Text>
+          <Text style={styles.headerSubtitle}>Ranking neste periodo</Text>
+          {lastUpdatedAt ? (
+            <Text style={styles.liveText}>
+              Atualizado{" "}
+              {lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+          ) : null}
+
+          <View style={styles.periodRow}>
+            {periodChip("daily", "Dia")}
+            {periodChip("weekly", "Semana")}
+            {periodChip("monthly", "Mes")}
+          </View>
         </View>
 
-        {/* Check-In Button */}
         <Pressable
           style={({ pressed }) => [
             styles.checkInButton,
@@ -77,147 +190,176 @@ export default function Leaderboard() {
             end={{ x: 1, y: 0 }}
           >
             <Zap size={20} color="#fff" />
-            <Text style={styles.checkInText}>Check-In for {group.name}</Text>
+            <Text style={styles.checkInText}>
+              Check-in para {groupName || "este grupo"}
+            </Text>
           </LinearGradient>
         </Pressable>
 
-        {/* Leaderboard */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Leaderboard</Text>
-            <Text style={styles.cardSubtitle}>Check-ins this month</Text>
+            <Text style={styles.cardTitle}>Ranking</Text>
+            <View style={styles.liveBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.cardSubtitle}>
+                Check-ins do {periodLabel[period]}
+              </Text>
+            </View>
           </View>
-          <View style={styles.leaderboardList}>
-            {group.allMembers.map((member) => {
-              const isCurrentUser = member.userId === currentUser.id;
-              return (
-                <View
-                  key={member.userId}
-                  style={[
-                    styles.memberRow,
-                    getRankStyle(member.rank, isCurrentUser),
-                  ]}
-                >
-                  <View style={styles.rankContainer}>
-                    {member.rank <= 3 ? (
-                      member.rank === 1 ? (
-                        <Trophy size={20} color="#fbbf24" />
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color="#0ea5e9" />
+              <Text style={styles.loadingText}>Carregando ranking...</Text>
+            </View>
+          ) : (
+            <View style={styles.leaderboardList}>
+              {members.map((member) => {
+                const isCurrentUser = member.user_id === currentUserId;
+                return (
+                  <Pressable
+                    key={`${member.user_id}-${member.rank}`}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/profile/public",
+                        params: { groupId: String(groupId), userId: String(member.user_id) },
+                      } as never);
+                    }}
+                    style={[
+                      styles.memberRow,
+                      getRankStyle(member.rank, isCurrentUser),
+                    ]}
+                  >
+                    <View style={styles.rankContainer}>
+                      {member.rank <= 3 ? (
+                        member.rank === 1 ? (
+                          <Trophy size={20} color="#fbbf24" />
+                        ) : (
+                          <Medal
+                            size={20}
+                            color={
+                              member.rank === 2 ? "#d1d5db" : "#d97706"
+                            }
+                          />
+                        )
                       ) : (
-                        <Medal size={20} color={member.rank === 2 ? "#d1d5db" : "#d97706"} />
-                      )
-                    ) : (
+                        <Text
+                          style={[
+                            styles.rankText,
+                            isCurrentUser && styles.currentUserText,
+                          ]}
+                        >
+                          #{member.rank}
+                        </Text>
+                      )}
+                    </View>
+                    <Image
+                      source={{ uri: member.avatar }}
+                      style={styles.avatar}
+                    />
+                    <View style={styles.memberInfo}>
                       <Text
                         style={[
-                          styles.rankText,
+                          styles.memberName,
                           isCurrentUser && styles.currentUserText,
                         ]}
                       >
-                        #{member.rank}
+                        {member.name}
+                        {isCurrentUser ? " (Voce)" : ""}
                       </Text>
-                    )}
-                  </View>
-                  <Image
-                    source={{ uri: member.avatar }}
-                    style={styles.avatar}
-                  />
-                  <View style={styles.memberInfo}>
-                    <Text
-                      style={[
-                        styles.memberName,
-                        isCurrentUser && styles.currentUserText,
-                      ]}
-                    >
-                      {member.name}
-                      {isCurrentUser && " (You)"}
-                    </Text>
-                    <Text style={styles.username}>@{member.username}</Text>
-                  </View>
-                  <View style={styles.scoreContainer}>
-                    <Text
-                      style={[
-                        styles.score,
-                        isCurrentUser && styles.currentUserText,
-                      ]}
-                    >
-                      {member.checkInCount}
-                    </Text>
-                    <Text style={styles.scoreLabel}>check-ins</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+                      <Text style={styles.username}>@{member.username}</Text>
+                    </View>
+                    <View style={styles.scoreContainer}>
+                      <Text
+                        style={[
+                          styles.score,
+                          isCurrentUser && styles.currentUserText,
+                        ]}
+                      >
+                        {member.check_in_count}
+                      </Text>
+                      <Text style={styles.scoreLabel}>check-ins</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {!members.length && !loading ? (
+                <Text style={styles.emptyText}>Nenhum check-in neste periodo.</Text>
+              ) : null}
+            </View>
+          )}
         </View>
 
-        {/* Podium */}
         <View style={[styles.card, { marginBottom: 100 }]}>
-          <Text style={styles.cardTitle}>Top 3 Podium</Text>
-          <View style={styles.podium}>
-            {group.topMembers[1] && (
-              <View style={[styles.podiumPlace, styles.place2]}>
-                <Image
-                  source={{ uri: group.topMembers[1].avatar }}
-                  style={styles.podiumAvatar2}
-                />
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {group.topMembers[1].name}
-                </Text>
-                <Text style={styles.podiumScore2}>
-                  {group.topMembers[1].checkInCount}
-                </Text>
-                <View style={[styles.podiumBase, styles.podiumBase2]}>
-                  <Text style={styles.podiumRank2}>2</Text>
+          <Text style={styles.cardTitle}>Podio Top 3</Text>
+          {loading ? null : (
+            <View style={styles.podium}>
+              {topThree[1] && (
+                <View style={[styles.podiumPlace, styles.place2]}>
+                  <Image
+                    source={{ uri: topThree[1].avatar }}
+                    style={styles.podiumAvatar2}
+                  />
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {topThree[1].name}
+                  </Text>
+                  <Text style={styles.podiumScore2}>
+                    {topThree[1].check_in_count}
+                  </Text>
+                  <View style={[styles.podiumBase, styles.podiumBase2]}>
+                    <Text style={styles.podiumRank2}>2</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-            {group.topMembers[0] && (
-              <View style={[styles.podiumPlace, styles.place1]}>
-                <Trophy
-                  size={24}
-                  color="#fbbf24"
-                  style={{ marginBottom: 4 }}
-                />
-                <Image
-                  source={{ uri: group.topMembers[0].avatar }}
-                  style={styles.podiumAvatar1}
-                />
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {group.topMembers[0].name}
-                </Text>
-                <Text style={styles.podiumScore1}>
-                  {group.topMembers[0].checkInCount}
-                </Text>
-                <View style={[styles.podiumBase, styles.podiumBase1]}>
-                  <Text style={styles.podiumRank1}>1</Text>
+              )}
+              {topThree[0] && (
+                <View style={[styles.podiumPlace, styles.place1]}>
+                  <Trophy
+                    size={24}
+                    color="#fbbf24"
+                    style={{ marginBottom: 4 }}
+                  />
+                  <Image
+                    source={{ uri: topThree[0].avatar }}
+                    style={styles.podiumAvatar1}
+                  />
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {topThree[0].name}
+                  </Text>
+                  <Text style={styles.podiumScore1}>
+                    {topThree[0].check_in_count}
+                  </Text>
+                  <View style={[styles.podiumBase, styles.podiumBase1]}>
+                    <Text style={styles.podiumRank1}>1</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-            {group.topMembers[2] && (
-              <View style={[styles.podiumPlace, styles.place3]}>
-                <Image
-                  source={{ uri: group.topMembers[2].avatar }}
-                  style={styles.podiumAvatar3}
-                />
-                <Text style={styles.podiumName} numberOfLines={1}>
-                  {group.topMembers[2].name}
-                </Text>
-                <Text style={styles.podiumScore3}>
-                  {group.topMembers[2].checkInCount}
-                </Text>
-                <View style={[styles.podiumBase, styles.podiumBase3]}>
-                  <Text style={styles.podiumRank3}>3</Text>
+              )}
+              {topThree[2] && (
+                <View style={[styles.podiumPlace, styles.place3]}>
+                  <Image
+                    source={{ uri: topThree[2].avatar }}
+                    style={styles.podiumAvatar3}
+                  />
+                  <Text style={styles.podiumName} numberOfLines={1}>
+                    {topThree[2].name}
+                  </Text>
+                  <Text style={styles.podiumScore3}>
+                    {topThree[2].check_in_count}
+                  </Text>
+                  <View style={[styles.podiumBase, styles.podiumBase3]}>
+                    <Text style={styles.podiumRank3}>3</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-          </View>
+              )}
+            </View>
+          )}
         </View>
       </ScrollView>
 
-      {/* Check-In Modal */}
       <CheckInModal
         isOpen={isCheckInOpen}
         onClose={() => setIsCheckInOpen(false)}
-        groupName={group.name}
+        groupId={groupId}
+        groupName={groupName}
+        onSubmitted={() => void load()}
       />
     </LinearGradient>
   );
@@ -226,7 +368,35 @@ export default function Leaderboard() {
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   container: { flex: 1, padding: 16 },
-  header: { paddingVertical: 32, alignItems: "center" },
+  loadingBox: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 10,
+  },
+  loadingText: { color: "#6b7280", fontSize: 14 },
+  emptyText: { color: "#6b7280", textAlign: "center", paddingVertical: 12 },
+  periodRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+    flexWrap: "wrap",
+  },
+  periodChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#ffffff",
+  },
+  periodChipActive: {
+    backgroundColor: "#0ea5e9",
+    borderColor: "#0ea5e9",
+  },
+  periodChipText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+  periodChipTextActive: { color: "#ffffff" },
+  header: { paddingVertical: 24, alignItems: "center" },
   headerTitle: {
     fontSize: 28,
     fontWeight: "900",
@@ -235,6 +405,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   headerSubtitle: { fontSize: 14, color: "#6b7280", marginTop: 8 },
+  liveText: {
+    fontSize: 12,
+    color: "#0ea5e9",
+    marginTop: 6,
+    fontWeight: "600",
+  },
   checkInButton: {
     borderRadius: 16,
     overflow: "hidden",
@@ -275,6 +451,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
   cardSubtitle: { fontSize: 12, color: "#6b7280" },
+  liveBadge: { flexDirection: "row", alignItems: "center", gap: 6 },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#22c55e",
+  },
   leaderboardList: { gap: 12 },
   memberRow: {
     flexDirection: "row",

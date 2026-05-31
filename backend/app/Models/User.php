@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -10,10 +11,15 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+
+    public const DEFAULT_AVATAR = '/default-avatar.png';
+
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
+        'avatar',
     ];
 
     protected $hidden = [
@@ -37,5 +43,10 @@ class User extends Authenticatable
     public function ownedGroups()
     {
         return $this->hasMany(Group::class, 'owner_id');
+    }
+
+    public function checkIns(): HasMany
+    {
+        return $this->hasMany(CheckIn::class);
     }
 }

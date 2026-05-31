@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -14,18 +15,34 @@ class AuthController extends Controller
         try {
             $validated = $request->validate([
                 'name'     => 'required|string|max:255',
-                'email'    => 'required|email|unique:users',
+                'email'    => 'required|email',
                 'password' => 'required|min:6',
             ]);
+            $validated['email'] = Str::lower($validated['email']);
+
+            if (User::whereRaw('lower(email) = ?', [$validated['email']])->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => ['E-mail ja cadastrado'],
+                ]);
+            }
+
+            $base = Str::slug($validated['name']) ?: 'rat';
+
+            $username = $base . '-' . Str::lower(Str::random(5));
+            while (User::where('username', $username)->exists()) {
+                $username = $base . '-' . Str::lower(Str::random(5));
+            }
 
             $user = User::create([
                 'name'     => $validated['name'],
+                'username' => $username,
+                'avatar'   => User::DEFAULT_AVATAR,
                 'email'    => $validated['email'],
                 'password' => Hash::make($validated['password']),
             ]);
 
             return response()->json([
-                'message' => 'User created successfully',
+                'message' => 'Conta criada com sucesso!',
                 'user'    => $user
             ], 201);
 
@@ -50,12 +67,19 @@ class AuthController extends Controller
                 'email'    => 'required|email',
                 'password' => 'required',
             ]);
+            $validated['email'] = Str::lower($validated['email']);
 
-            $user = User::where('email', $validated['email'])->first();
+            $user = User::whereRaw('lower(email) = ?', [$validated['email']])->first();
 
-            if (!$user || !Hash::check($validated['password'], $user->password)) {
+            if (!$user) {
                 return response()->json([
-                    'message' => 'Invalid credentials'
+                    'message' => 'E-mail nao cadastrado'
+                ], 401);
+            }
+
+            if (!Hash::check($validated['password'], $user->password)) {
+                return response()->json([
+                    'message' => 'Senha incorreta'
                 ], 401);
             }
 
@@ -99,7 +123,7 @@ class AuthController extends Controller
             $request->user()->currentAccessToken()->delete();
 
             return response()->json([
-                'message' => 'Logged out successfully'
+                'message' => 'Sessao encerrada com sucesso'
             ]);
 
         } catch (\Exception $e) {

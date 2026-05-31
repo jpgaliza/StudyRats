@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,34 +12,65 @@ import {
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Zap } from "lucide-react-native";
-import { login, setSession } from "@/lib/api";
+import { AlertCircle, CheckCircle2, Zap } from "lucide-react-native";
+import { clearSession, login, setSession } from "@/lib/api";
 
-export default function Login() {
+type LoginProps = {
+  onLoggedIn?: () => void;
+};
+
+export default function Login({ onLoggedIn }: LoginProps = {}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "error" | "success";
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    clearSession();
+  }, []);
 
   const handleLogin = async () => {
+    setFeedback(null);
+
     if (!email.trim() || !password) {
-      Alert.alert("Missing data", "Please fill email and password.");
+      setFeedback({ type: "error", message: "Preencha e-mail e senha." });
       return;
     }
 
     try {
       setIsLoading(true);
+      const normalizedEmail = email.trim().toLowerCase();
       const response = await login({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
       });
 
+      if (!response?.token || !response?.user) {
+        setFeedback({
+          type: "error",
+          message: "Resposta invalida do servidor.",
+        });
+        return;
+      }
+
       setSession(response.token, response.user);
-      router.replace("/(tabs)");
+      setFeedback({ type: "success", message: "Login realizado!" });
+      queueMicrotask(() => {
+        if (onLoggedIn) {
+          onLoggedIn();
+        } else {
+          router.replace("/" as never);
+        }
+      });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to login.";
-      Alert.alert("Login error", message);
+        error instanceof Error ? error.message : "Falha ao entrar.";
+      setFeedback({ type: "error", message });
+      Alert.alert("Erro de login", message);
     } finally {
       setIsLoading(false);
     }
@@ -64,17 +95,44 @@ export default function Login() {
               <Zap size={32} color="#fff" />
             </View>
             <Text style={styles.title}>
-              Study<Text style={styles.titleAccent}>Rats</Text>
+              Study <Text style={styles.titleAccent}>Rats</Text>
             </Text>
-            <Text style={styles.subtitle}>Grind together. Win together.</Text>
+            <Text style={styles.subtitle}>Estudem juntos. Vencam juntos.</Text>
           </View>
 
           {/* Login Form */}
           <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>Welcome Back</Text>
+            <Text style={styles.formTitle}>Bem-vindo de volta</Text>
+
+            {feedback ? (
+              <View
+                style={[
+                  styles.feedback,
+                  feedback.type === "error"
+                    ? styles.feedbackError
+                    : styles.feedbackSuccess,
+                ]}
+              >
+                {feedback.type === "error" ? (
+                  <AlertCircle size={18} color="#b91c1c" />
+                ) : (
+                  <CheckCircle2 size={18} color="#047857" />
+                )}
+                <Text
+                  style={[
+                    styles.feedbackText,
+                    feedback.type === "error"
+                      ? styles.feedbackTextError
+                      : styles.feedbackTextSuccess,
+                  ]}
+                >
+                  {feedback.message}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>E-mail</Text>
               <TextInput
                 style={styles.input}
                 value={email}
@@ -88,7 +146,7 @@ export default function Login() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>Senha</Text>
               <TextInput
                 style={styles.input}
                 value={password}
@@ -115,16 +173,16 @@ export default function Login() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>
-                  {isLoading ? "Logging in..." : "Log In"}
+                  {isLoading ? "Entrando..." : "Entrar"}
                 </Text>
               </LinearGradient>
             </Pressable>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <Link href="/(auth)/register" asChild>
+              <Text style={styles.footerText}>Nao tem conta? </Text>
+              <Link href="/register" asChild>
                 <Pressable>
-                  <Text style={styles.link}>Create Account</Text>
+                  <Text style={styles.link}>Criar conta</Text>
                 </Pressable>
               </Link>
             </View>
@@ -196,6 +254,35 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
     marginBottom: 24,
+  },
+  feedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  feedbackError: {
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+  },
+  feedbackSuccess: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  feedbackTextError: {
+    color: "#b91c1c",
+  },
+  feedbackTextSuccess: {
+    color: "#047857",
   },
   inputGroup: {
     marginBottom: 16,

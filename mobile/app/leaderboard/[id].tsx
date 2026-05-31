@@ -18,7 +18,7 @@ export default function Leaderboard() {
   if (!group) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Group not found</Text>
+        <Text style={styles.errorText}>Grupo nao encontrado</Text>
       </View>
     );
   }
@@ -41,7 +41,7 @@ export default function Leaderboard() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{group.name}</Text>
           <Text style={styles.headerSubtitle}>
-            Rankings • {group.memberCount} members
+            Ranking • {group.memberCount} membros
           </Text>
         </View>
 
@@ -59,15 +59,15 @@ export default function Leaderboard() {
             end={{ x: 1, y: 0 }}
           >
             <Zap size={20} color="#fff" />
-            <Text style={styles.checkInText}>Check-In for {group.name}</Text>
+            <Text style={styles.checkInText}>Check-in para {group.name}</Text>
           </LinearGradient>
         </Pressable>
 
         {/* Leaderboard */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Leaderboard</Text>
-            <Text style={styles.cardSubtitle}>Check-ins this month</Text>
+            <Text style={styles.cardTitle}>Ranking</Text>
+            <Text style={styles.cardSubtitle}>Check-ins deste mes</Text>
           </View>
           <View style={styles.leaderboardList}>
             {group.allMembers.map((member, index) => {
@@ -110,7 +110,7 @@ export default function Leaderboard() {
                       ]}
                     >
                       {member.name}
-                      {isCurrentUser && " (You)"}
+                      {isCurrentUser && " (Voce)"}
                     </Text>
                     <Text style={styles.username}>@{member.username}</Text>
                   </View>
@@ -133,7 +133,7 @@ export default function Leaderboard() {
 
         {/* Podium */}
         <View style={[styles.card, { marginBottom: 100 }]}>
-          <Text style={styles.cardTitle}>Top 3 Podium</Text>
+          <Text style={styles.cardTitle}>Podio Top 3</Text>
           <View style={styles.podium}>
             {group.topMembers[1] && (
               <View style={[styles.podiumPlace, styles.place2]}>

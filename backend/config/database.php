@@ -84,20 +84,29 @@ return [
             ]) : [],
         ],
 
-        'pgsql' => [
+        'pgsql' => array_merge([
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
             'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
+            'username' => env('DB_USERNAME', 'postgres'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
-        ],
+        ], env('DB_READ_HOST') ? [
+            'write' => [
+                'host' => [env('DB_MASTER_HOST', env('DB_HOST', '127.0.0.1'))],
+            ],
+            'read' => [
+                'host' => array_values(array_filter([env('DB_READ_HOST')])),
+            ],
+            'sticky' => filter_var(env('DB_STICKY', true), FILTER_VALIDATE_BOOL),
+        ] : [
+            'host' => env('DB_HOST', '127.0.0.1'),
+        ]),
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',

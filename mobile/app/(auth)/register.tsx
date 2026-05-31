@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { Link, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Zap } from "lucide-react-native";
-import { login, register, setSession } from "@/lib/api";
+import { clearSession, login, register, setSession, ApiRequestError } from "@/lib/api";
 
 export default function Register() {
   const router = useRouter();
@@ -26,42 +26,63 @@ export default function Register() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    clearSession();
+  }, []);
+
   const handleRegister = async () => {
     if (!formData.email.trim() || !formData.password) {
-      Alert.alert("Error", "Email and password are required.");
+      Alert.alert("Erro", "E-mail e senha sao obrigatorios.");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert("Error", "Passwords don't match!");
+      Alert.alert("Erro", "As senhas nao conferem.");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
     const name = formData.realName.trim() || formData.username.trim();
     if (!name) {
-      Alert.alert("Error", "Please enter your real name or username.");
+      Alert.alert("Erro", "Informe seu nome real ou nome de usuario.");
       return;
     }
 
     try {
       setIsLoading(true);
+      const normalizedEmail = formData.email.trim().toLowerCase();
       await register({
         name,
-        email: formData.email.trim(),
+        email: normalizedEmail,
         password: formData.password,
       });
 
       const loginResponse = await login({
-        email: formData.email.trim(),
+        email: normalizedEmail,
         password: formData.password,
       });
 
+      if (!loginResponse?.token || !loginResponse?.user) {
+        Alert.alert("Erro", "Nao foi possivel obter a sessao apos o cadastro.");
+        return;
+      }
+
       setSession(loginResponse.token, loginResponse.user);
-      router.replace("/(tabs)");
+      queueMicrotask(() => {
+        router.replace("/" as never);
+      });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to create account.";
-      Alert.alert("Registration error", message);
+        error instanceof ApiRequestError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Falha ao criar conta.";
+      Alert.alert("Erro de cadastro", message);
     } finally {
       setIsLoading(false);
     }
@@ -91,29 +112,29 @@ export default function Register() {
               <Zap size={32} color="#fff" />
             </View>
             <Text style={styles.title}>
-              Study<Text style={styles.titleAccent}>Rats</Text>
+              Study <Text style={styles.titleAccent}>Rats</Text>
             </Text>
-            <Text style={styles.subtitle}>Join the grind.</Text>
+            <Text style={styles.subtitle}>Entre no ritmo.</Text>
           </View>
 
           {/* Register Form */}
           <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>Create Account</Text>
+            <Text style={styles.formTitle}>Criar conta</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Real Name</Text>
+              <Text style={styles.label}>Nome real</Text>
               <TextInput
                 style={styles.input}
                 value={formData.realName}
                 onChangeText={(value) => handleChange("realName", value)}
-                placeholder="John Doe"
+                placeholder="Joao Silva"
                 placeholderTextColor="#9ca3af"
                 autoComplete="name"
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
+              <Text style={styles.label}>Nome de usuario</Text>
               <TextInput
                 style={styles.input}
                 value={formData.username}
@@ -126,7 +147,7 @@ export default function Register() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>E-mail</Text>
               <TextInput
                 style={styles.input}
                 value={formData.email}
@@ -140,7 +161,7 @@ export default function Register() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>Senha</Text>
               <TextInput
                 style={styles.input}
                 value={formData.password}
@@ -153,7 +174,7 @@ export default function Register() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.label}>Confirmar senha</Text>
               <TextInput
                 style={styles.input}
                 value={formData.confirmPassword}
@@ -180,16 +201,16 @@ export default function Register() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>
-                  {isLoading ? "Creating account..." : "Create Account"}
+                  {isLoading ? "Criando conta..." : "Criar conta"}
                 </Text>
               </LinearGradient>
             </Pressable>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account? </Text>
-              <Link href="/(auth)/login" asChild>
+              <Text style={styles.footerText}>Ja tem conta? </Text>
+              <Link href="/login" asChild>
                 <Pressable>
-                  <Text style={styles.link}>Log In</Text>
+                  <Text style={styles.link}>Entrar</Text>
                 </Pressable>
               </Link>
             </View>

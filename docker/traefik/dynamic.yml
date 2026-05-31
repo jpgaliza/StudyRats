@@ -1,0 +1,21 @@
+http:
+  routers:
+    studyrats-http:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - web
+      service: studyrats-api
+
+    studyrats-https:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - websecure
+      service: studyrats-api
+      tls: {}
+
+  services:
+    studyrats-api:
+      loadBalancer:
+        servers:
+          - url: "http://app1:80"
+          - url: "http://app2:80"
