@@ -1,70 +1,153 @@
+# StudyRats: Mobile -> Traefik -> API replicas -> PostgreSQL master/read replica.
+
+x-app-base: &app-base
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  working_dir: /var/www
+  environment:
+    APP_ENV: local
+    APP_DEBUG: "true"
+    APP_URL: http://localhost:8088
+    PHP_CLI_SERVER_WORKERS: "8"
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres-master
+    DB_MASTER_HOST: postgres-master
+    DB_READ_HOST: postgres-replica
+    DB_PORT: "5432"
+    DB_DATABASE: studyrats
+    DB_USERNAME: studyrats
+    DB_PASSWORD: secret
+    DB_STICKY: "true"
+    SESSION_DRIVER: array
+    CACHE_STORE: file
+    SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1
+  volumes:
+    - ./backend/storage/app/public:/var/www/storage/app/public
+  networks:
+    - studyrats_network
+  depends_on:
+    postgres-master:
+      condition: service_healthy
+    postgres-replica:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "php -r 'exit(0);'"]
+    interval: 10s
+    timeout: 5s
+    retries: 10
+  command:
+    - /bin/bash
+    - -lc
+    - |
+        set -e
+        mkdir -p /var/www/storage/logs
+        if [ ! -f /var/www/.env ]; then cp /var/www/.env.example /var/www/.env; fi
+        php artisan config:clear || true
+        php artisan key:generate --force || true
+        php artisan migrate --force
+        rm -f /var/www/public/storage 2>/dev/null || true
+        ln -sfn /var/www/storage/app/public /var/www/public/storage || true
+        php -d opcache.enable_cli=1 -d opcache.validate_timestamps=0 artisan serve --host=0.0.0.0 --port=80 --no-reload
+
 services:
-
-  # ─── Laravel API ─────────────────────────────
-  app:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: studyrats_app
+  traefik:
+    image: docker.io/traefik:v3.2
+    container_name: studyrats_traefik
     restart: unless-stopped
-    working_dir: /var/www
-    volumes:
-      - ./backend:/var/www
+    command:
+      - --api.dashboard=true
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
     ports:
-      - "8000:8000"
-    command: php artisan serve --host=0.0.0.0 --port=8000
+      - "8088:80"
+      - "8443:443"
+    volumes:
+      - ./docker/traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
       - studyrats_network
     depends_on:
-      - mysql
-      - redis
+      app1:
+        condition: service_healthy
+      app2:
+        condition: service_healthy
 
-  # ─── MySQL ───────────────────────────────────
-  mysql:
-    image: mysql:8.0
-    container_name: studyrats_mysql
+  postgres-master:
+    image: docker.io/library/postgres:16-alpine
+    container_name: studyrats_postgres_master
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - hot_standby=on
     environment:
-      MYSQL_DATABASE: studyrats
-      MYSQL_USER: studyrats_user
-      MYSQL_PASSWORD: secret
-      MYSQL_ROOT_PASSWORD: root_secret
-    ports:
-      - "3306:3306"
+      POSTGRES_USER: studyrats
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: studyrats
+      REPLICATION_USER: repl_user
+      REPLICATION_PASSWORD: repl_secret
     volumes:
-      - studyrats_mysql_data:/var/lib/mysql
+      - studyrats_pg_master_data:/var/lib/postgresql/data
+      - ./docker/postgres/master/init-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studyrats -d studyrats"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
       - studyrats_network
 
-  # ─── Redis ───────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    container_name: studyrats_redis
+  postgres-replica:
+    image: docker.io/library/postgres:16-alpine
+    container_name: studyrats_postgres_replica
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    networks:
-      - studyrats_network
-
-  # ─── phpMyAdmin (opcional mas útil) ──────────
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: studyrats_phpmyadmin
-    restart: unless-stopped
-    ports:
-      - "8080:80"
+    entrypoint:
+      - /bin/sh
+      - /usr/local/bin/replica-entrypoint.sh
     environment:
-      PMA_HOST: mysql
-      PMA_USER: studyrats_user
-      PMA_PASSWORD: secret
+      POSTGRES_USER: studyrats
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: studyrats
+      POSTGRES_MASTER_HOST: postgres-master
+      REPLICATION_USER: repl_user
+      REPLICATION_PASSWORD: repl_secret
+    volumes:
+      - studyrats_pg_replica_data:/var/lib/postgresql/data
+      - ./docker/postgres/replica/replica-entrypoint.sh:/usr/local/bin/replica-entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studyrats -d studyrats"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
       - studyrats_network
     depends_on:
-      - mysql
+      postgres-master:
+        condition: service_healthy
+
+  app1:
+    <<: *app-base
+    container_name: studyrats_app1
+    ports:
+      - "8000:80"
+
+  app2:
+    <<: *app-base
+    container_name: studyrats_app2
 
 networks:
   studyrats_network:
     driver: bridge
 
 volumes:
-  studyrats_mysql_data:
+  studyrats_pg_master_data:
+  studyrats_pg_replica_data:

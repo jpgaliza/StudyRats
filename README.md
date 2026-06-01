@@ -7,7 +7,7 @@ Aplicação web para gerenciamento de estudos, utilizando Laravel no backend, Re
     studyrats/
     ├── backend/          # Laravel API
     ├── frontend/         # React Web
-    ├── docker/           # Configurações de Nginx/PHP
+    ├── docker/           # Configurações de Traefik/PostgreSQL
     ├── docker-compose.yml
     └── README.md
 ---
@@ -73,8 +73,9 @@ exit
 | Serviço    | URL                      |
 | ---------- | ------------------------ |
 | **Frontend** | http://localhost:5173 (via Docker) |
-| **Backend/API**| `http://localhost:8000` |
-| **phpMyAdmin** | `http://localhost:8080` |
+| **API via Traefik** | `http://localhost:8088/api` |
+| **API via Traefik HTTPS** | `https://localhost:8443/api` |
+| **API direta app1/debug** | `http://localhost:8000/api` |
 
 ---
 
@@ -87,18 +88,18 @@ APP_NAME=StudyRats
 APP_ENV=local
 APP_KEY=
 APP_DEBUG=true
-APP_URL=http://localhost:8000
+APP_URL=http://localhost:8088
 
-DB_CONNECTION=mysql
-DB_HOST=mysql        # Nome do serviço no docker-compose
-DB_PORT=3306
+DB_CONNECTION=pgsql
+DB_HOST=postgres-master
+DB_MASTER_HOST=postgres-master
+DB_READ_HOST=postgres-replica
+DB_PORT=5432
 DB_DATABASE=studyrats
-DB_USERNAME=studyrats_user
+DB_USERNAME=studyrats
 DB_PASSWORD=secret
 
-CACHE_STORE=redis
-REDIS_HOST=redis
-REDIS_PORT=6379
+CACHE_STORE=file
 ```
 
 ---
