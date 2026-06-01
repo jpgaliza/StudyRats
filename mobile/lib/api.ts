@@ -12,6 +12,8 @@ export interface BackendUser {
 export interface BackendGroup {
   id: number;
   name: string;
+  description?: string | null;
+  ends_at?: string | null;
   owner_id: number;
   invite_code: string;
   users_count?: number;
@@ -387,7 +389,11 @@ export async function getGroup(groupId: string | number) {
   });
 }
 
-export async function createGroup(payload: { name: string }) {
+export async function createGroup(payload: {
+  name: string;
+  description?: string | null;
+  ends_at?: string | null;
+}) {
   return request<BackendGroup>("/groups", {
     method: "POST",
     body: JSON.stringify(payload),

@@ -21,12 +21,16 @@ class GroupController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'ends_at' => 'nullable|date',
         ]);
 
         $userId = $request->user()->id;
 
         $group = Group::create([
             'name'        => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'ends_at'     => $validated['ends_at'] ?? null,
             'owner_id'    => $userId,
             'invite_code' => $this->generateInviteCode(),
         ]);
@@ -39,7 +43,7 @@ class GroupController extends Controller
     public function join(Request $request)
     {
         $validated = $request->validate([
-            'code' => 'required|string',
+            'code' => 'required|string|size:6',
         ]);
 
         $group = Group::where('invite_code', strtoupper(trim($validated['code'])))->first();
@@ -82,9 +86,15 @@ class GroupController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'ends_at' => 'nullable|date',
         ]);
 
-        $group->update(['name' => $request->name]);
+        $group->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'ends_at' => $request->ends_at,
+        ]);
 
         return response()->json($group);
     }

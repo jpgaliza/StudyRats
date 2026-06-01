@@ -12,9 +12,8 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Zap, Flame, Clock } from "lucide-react-native";
-import { Link, useFocusEffect, useRouter } from "expo-router";
+import { Link, Redirect, useFocusEffect, useRouter } from "expo-router";
 import { CheckInModal } from "@/components/CheckInModal";
-import Login from "@/app/(auth)/login";
 import {
   getDashboard,
   getFeedCheckIns,
@@ -144,7 +143,7 @@ export default function Dashboard() {
   );
 
   if (!hasSession) {
-    return <Login onLoggedIn={() => setHasSession(true)} />;
+    return <Redirect href="/login" />;
   }
 
   const formatTimeAgo = (iso: string | Date) => {
@@ -155,6 +154,18 @@ export default function Dashboard() {
     if (hours < 24) return `Ha ${hours}h`;
     const days = Math.floor(hours / 24);
     return days === 1 ? "Ha 1 dia" : `Ha ${days} dias`;
+  };
+
+  const formatCheckInTime = (iso: string | Date) => {
+    const date = typeof iso === "string" ? new Date(iso) : iso;
+    if (Number.isNaN(date.getTime())) return "";
+
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
   };
 
   const handleCheckInClick = () => {
@@ -340,7 +351,7 @@ export default function Dashboard() {
                     <Text style={styles.activityNote}>{`"${activity.note}"`}</Text>
                   ) : null}
                   <Text style={styles.activityTime}>
-                    {formatTimeAgo(activity.created_at)}
+                    {formatTimeAgo(activity.created_at)} - {formatCheckInTime(activity.created_at)}
                   </Text>
                 </View>
               </View>

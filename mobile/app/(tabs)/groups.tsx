@@ -35,6 +35,8 @@ import {
 type GroupItem = {
   id: string;
   name: string;
+  description: string | null;
+  endsAt: string | null;
   ownerId: number;
   code: string;
   memberCount: number;
@@ -51,7 +53,10 @@ export default function StudyGroups() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupEndsAt, setNewGroupEndsAt] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [joinCodeError, setJoinCodeError] = useState("");
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,6 +70,8 @@ export default function StudyGroups() {
     apiGroups.map((group) => ({
       id: String(group.id),
       name: group.name,
+      description: group.description ?? null,
+      endsAt: group.ends_at ?? null,
       ownerId: group.owner_id,
       code: group.invite_code,
       memberCount: group.users_count ?? 0,
@@ -138,9 +145,15 @@ export default function StudyGroups() {
 
     try {
       setIsSubmitting(true);
-      await createGroup({ name: newGroupName.trim() });
+      await createGroup({
+        name: newGroupName.trim(),
+        description: newGroupDescription.trim() || null,
+        ends_at: newGroupEndsAt.trim() || null,
+      });
       Alert.alert("Grupo criado!", `Grupo "${newGroupName.trim()}" criado!`);
       setNewGroupName("");
+      setNewGroupDescription("");
+      setNewGroupEndsAt("");
       setShowCreateModal(false);
       await loadGroups();
     } catch (error) {
@@ -153,16 +166,25 @@ export default function StudyGroups() {
   };
 
   const handleJoinGroup = async () => {
-    if (!joinCode.trim()) {
-      Alert.alert("Dados faltando", "Informe o codigo do grupo.");
+    const normalizedCode = joinCode.trim().toUpperCase();
+    setJoinCodeError("");
+
+    if (!normalizedCode) {
+      setJoinCodeError("Informe o codigo do grupo.");
+      return;
+    }
+
+    if (normalizedCode.length !== 6) {
+      setJoinCodeError("O codigo precisa ter exatamente 6 caracteres.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      await joinGroup({ code: joinCode.trim().toUpperCase() });
-      Alert.alert("Voce entrou no grupo!", `Codigo: ${joinCode.trim().toUpperCase()}`);
+      await joinGroup({ code: normalizedCode });
+      Alert.alert("Voce entrou no grupo!", `Codigo: ${normalizedCode}`);
       setJoinCode("");
+      setJoinCodeError("");
       setShowJoinModal(false);
       await loadGroups();
     } catch (error) {
@@ -174,10 +196,24 @@ export default function StudyGroups() {
           : error instanceof Error
             ? error.message
             : "Nao foi possivel entrar no grupo.";
-      Alert.alert("Erro ao entrar no grupo", message);
+      setJoinCodeError(message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const formatGroupEnd = (iso: string | null) => {
+    if (!iso) return null;
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
   };
 
   const openManageGroup = async (groupId: string) => {
@@ -319,12 +355,22 @@ export default function StudyGroups() {
                   <View style={styles.groupHeader}>
                     <View style={styles.groupInfo}>
                       <Text style={styles.groupName}>{group.name}</Text>
+                      {group.description ? (
+                        <Text style={styles.groupDescription} numberOfLines={2}>
+                          {group.description}
+                        </Text>
+                      ) : null}
                       <View style={styles.groupMeta}>
                         <Users size={16} color="#6b7280" />
                         <Text style={styles.groupMembers}>
                           {group.memberCount} membros
                         </Text>
                       </View>
+                      {formatGroupEnd(group.endsAt) ? (
+                        <Text style={styles.groupEnd}>
+                          Termina em {formatGroupEnd(group.endsAt)}
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={styles.groupCode}>
                       <Text style={styles.codeLabel}>Codigo</Text>
@@ -440,6 +486,24 @@ export default function StudyGroups() {
                 placeholder="ex.: Grupo de estudo de Matematica"
                 placeholderTextColor="#9ca3af"
               />
+              <Text style={styles.inputLabel}>Descricao</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newGroupDescription}
+                onChangeText={setNewGroupDescription}
+                placeholder="ex.: Foco em exercicios e simulados"
+                placeholderTextColor="#9ca3af"
+                multiline
+                textAlignVertical="top"
+              />
+              <Text style={styles.inputLabel}>Tempo final</Text>
+              <TextInput
+                style={styles.input}
+                value={newGroupEndsAt}
+                onChangeText={setNewGroupEndsAt}
+                placeholder="ex.: 2026-12-20 18:00"
+                placeholderTextColor="#9ca3af"
+              />
               <Pressable
                 style={({ pressed }) => [
                   styles.modalButton,
@@ -488,13 +552,25 @@ export default function StudyGroups() {
             <View style={styles.modalBody}>
               <Text style={styles.inputLabel}>Codigo do grupo</Text>
               <TextInput
-                style={[styles.input, styles.codeInput]}
+                style={[
+                  styles.input,
+                  styles.codeInput,
+                  joinCodeError ? styles.inputError : null,
+                ]}
                 value={joinCode}
-                onChangeText={(text) => setJoinCode(text.toUpperCase())}
+                onChangeText={(text) => {
+                  const value = text.replace(/\s/g, "").toUpperCase().slice(0, 6);
+                  setJoinCode(value);
+                  if (joinCodeError) setJoinCodeError("");
+                }}
                 placeholder="ex.: CS2024"
                 placeholderTextColor="#9ca3af"
                 autoCapitalize="characters"
+                maxLength={6}
               />
+              {joinCodeError ? (
+                <Text style={styles.errorText}>{joinCodeError}</Text>
+              ) : null}
               <Pressable
                 style={({ pressed }) => [
                   styles.modalButton,
@@ -770,6 +846,12 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 8,
   },
+  groupDescription: {
+    fontSize: 13,
+    color: "#4b5563",
+    lineHeight: 18,
+    marginBottom: 10,
+  },
   groupMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -778,6 +860,12 @@ const styles = StyleSheet.create({
   groupMembers: {
     fontSize: 14,
     color: "#6b7280",
+  },
+  groupEnd: {
+    fontSize: 12,
+    color: "#0f766e",
+    fontWeight: "700",
+    marginTop: 8,
   },
   groupCode: {
     backgroundColor: "#eff6ff",
@@ -1045,6 +1133,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: "#111827",
+  },
+  inputError: {
+    borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
+  },
+  textArea: {
+    minHeight: 92,
+    lineHeight: 22,
+  },
+  errorText: {
+    color: "#b91c1c",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: -8,
   },
   codeInput: {
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",

@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Home, User, Users, Trophy } from "lucide-react-native";
+import { Home, User, Users } from "lucide-react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 
@@ -40,10 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: "Ranking",
-          tabBarIcon: ({ color, size }) => (
-            <Trophy size={size || 28} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

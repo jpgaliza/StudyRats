@@ -10,7 +10,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Group extends Model
 {
-    protected $fillable = ['name', 'owner_id', 'invite_code'];
+    protected $fillable = ['name', 'description', 'ends_at', 'owner_id', 'invite_code'];
+
+    protected $casts = [
+        'ends_at' => 'datetime',
+    ];
 
     public function users()
     {
