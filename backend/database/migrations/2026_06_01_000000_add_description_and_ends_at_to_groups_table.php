@@ -1,19 +1,40 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE groups ADD COLUMN IF NOT EXISTS description TEXT NULL');
-        DB::statement('ALTER TABLE groups ADD COLUMN IF NOT EXISTS ends_at TIMESTAMP(0) WITHOUT TIME ZONE NULL');
+        Schema::table('groups', function (Blueprint $table) {
+            if (!Schema::hasColumn('groups', 'description')) {
+                $table->text('description')->nullable();
+            }
+
+            if (!Schema::hasColumn('groups', 'starts_at')) {
+                $table->timestamp('starts_at')->nullable();
+            }
+
+            if (!Schema::hasColumn('groups', 'ends_at')) {
+                $table->timestamp('ends_at')->nullable();
+            }
+        });
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE groups DROP COLUMN IF EXISTS description');
-        DB::statement('ALTER TABLE groups DROP COLUMN IF EXISTS ends_at');
+        Schema::table('groups', function (Blueprint $table) {
+            $columns = array_values(array_filter([
+                Schema::hasColumn('groups', 'description') ? 'description' : null,
+                Schema::hasColumn('groups', 'starts_at') ? 'starts_at' : null,
+                Schema::hasColumn('groups', 'ends_at') ? 'ends_at' : null,
+            ]));
+
+            if ($columns) {
+                $table->dropColumn($columns);
+            }
+        });
     }
 };

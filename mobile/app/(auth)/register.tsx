@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Zap } from "lucide-react-native";
+import { AlertCircle, CheckCircle2, Zap } from "lucide-react-native";
 import { clearSession, login, register, setSession, ApiRequestError } from "@/lib/api";
 
 export default function Register() {
@@ -25,30 +25,42 @@ export default function Register() {
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "error" | "success";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     clearSession();
   }, []);
 
   const handleRegister = async () => {
+    setFeedback(null);
+
     if (!formData.email.trim() || !formData.password) {
-      Alert.alert("Erro", "E-mail e senha sao obrigatorios.");
+      setFeedback({ type: "error", message: "E-mail e senha sao obrigatorios." });
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert("Erro", "As senhas nao conferem.");
+      setFeedback({ type: "error", message: "As senhas nao conferem." });
       return;
     }
 
     if (formData.password.length < 6) {
-      Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres.");
+      setFeedback({
+        type: "error",
+        message: "A senha deve ter pelo menos 6 caracteres.",
+      });
       return;
     }
 
     const name = formData.realName.trim() || formData.username.trim();
     if (!name) {
-      Alert.alert("Erro", "Informe seu nome real ou nome de usuario.");
+      setFeedback({
+        type: "error",
+        message: "Informe seu nome real ou nome de usuario.",
+      });
       return;
     }
 
@@ -67,11 +79,15 @@ export default function Register() {
       });
 
       if (!loginResponse?.token || !loginResponse?.user) {
-        Alert.alert("Erro", "Nao foi possivel obter a sessao apos o cadastro.");
+        setFeedback({
+          type: "error",
+          message: "Nao foi possivel obter a sessao apos o cadastro.",
+        });
         return;
       }
 
       setSession(loginResponse.token, loginResponse.user);
+      setFeedback({ type: "success", message: "Conta criada! Entrando..." });
       queueMicrotask(() => {
         router.replace("/" as never);
       });
@@ -120,6 +136,33 @@ export default function Register() {
           {/* Register Form */}
           <View style={styles.formContainer}>
             <Text style={styles.formTitle}>Criar conta</Text>
+
+            {feedback ? (
+              <View
+                style={[
+                  styles.feedback,
+                  feedback.type === "error"
+                    ? styles.feedbackError
+                    : styles.feedbackSuccess,
+                ]}
+              >
+                {feedback.type === "error" ? (
+                  <AlertCircle size={18} color="#b91c1c" />
+                ) : (
+                  <CheckCircle2 size={18} color="#047857" />
+                )}
+                <Text
+                  style={[
+                    styles.feedbackText,
+                    feedback.type === "error"
+                      ? styles.feedbackTextError
+                      : styles.feedbackTextSuccess,
+                  ]}
+                >
+                  {feedback.message}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Nome real</Text>
@@ -283,6 +326,35 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
     marginBottom: 24,
+  },
+  feedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  feedbackError: {
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+  },
+  feedbackSuccess: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#a7f3d0",
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  feedbackTextError: {
+    color: "#b91c1c",
+  },
+  feedbackTextSuccess: {
+    color: "#047857",
   },
   inputGroup: {
     marginBottom: 16,

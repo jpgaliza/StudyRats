@@ -69,7 +69,9 @@ class AuthController extends Controller
             ]);
             $validated['email'] = Str::lower($validated['email']);
 
-            $user = User::whereRaw('lower(email) = ?', [$validated['email']])->first();
+            $user = User::onWriteConnection()
+                ->whereRaw('lower(email) = ?', [$validated['email']])
+                ->first();
 
             if (!$user) {
                 return response()->json([

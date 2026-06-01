@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { createElement, useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ type GroupItem = {
   id: string;
   name: string;
   description: string | null;
+  startsAt: string | null;
   endsAt: string | null;
   ownerId: number;
   code: string;
@@ -48,12 +49,56 @@ type GroupItem = {
   }[];
 };
 
+type DateTimeFieldProps = {
+  value: string;
+  onChangeText: (value: string) => void;
+};
+
+const webDateInputStyle = {
+  backgroundColor: "#f9fafb",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "#e5e7eb",
+  borderRadius: 12,
+  boxSizing: "border-box",
+  color: "#111827",
+  fontFamily: "inherit",
+  fontSize: 16,
+  height: 48,
+  outline: "none",
+  padding: "12px 16px",
+  width: "100%",
+};
+
+function DateTimeField({ value, onChangeText }: DateTimeFieldProps) {
+  if (Platform.OS === "web") {
+    return createElement("input", {
+      type: "datetime-local",
+      value,
+      onChange: (event: { target: { value: string } }) =>
+        onChangeText(event.target.value),
+      style: webDateInputStyle as any,
+    });
+  }
+
+  return (
+    <TextInput
+      style={styles.input}
+      value={value}
+      onChangeText={onChangeText}
+      placeholderTextColor="#9ca3af"
+      keyboardType="numbers-and-punctuation"
+    />
+  );
+}
+
 export default function StudyGroups() {
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupStartsAt, setNewGroupStartsAt] = useState("");
   const [newGroupEndsAt, setNewGroupEndsAt] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [joinCodeError, setJoinCodeError] = useState("");
@@ -71,6 +116,7 @@ export default function StudyGroups() {
       id: String(group.id),
       name: group.name,
       description: group.description ?? null,
+      startsAt: group.starts_at ?? null,
       endsAt: group.ends_at ?? null,
       ownerId: group.owner_id,
       code: group.invite_code,
@@ -148,11 +194,13 @@ export default function StudyGroups() {
       await createGroup({
         name: newGroupName.trim(),
         description: newGroupDescription.trim() || null,
+        starts_at: newGroupStartsAt.trim() || null,
         ends_at: newGroupEndsAt.trim() || null,
       });
       Alert.alert("Grupo criado!", `Grupo "${newGroupName.trim()}" criado!`);
       setNewGroupName("");
       setNewGroupDescription("");
+      setNewGroupStartsAt("");
       setNewGroupEndsAt("");
       setShowCreateModal(false);
       await loadGroups();
@@ -202,7 +250,7 @@ export default function StudyGroups() {
     }
   };
 
-  const formatGroupEnd = (iso: string | null) => {
+  const formatGroupDate = (iso: string | null) => {
     if (!iso) return null;
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return null;
@@ -214,6 +262,16 @@ export default function StudyGroups() {
       hour: "2-digit",
       minute: "2-digit",
     }).format(date);
+  };
+
+  const formatGroupPeriod = (startsAt: string | null, endsAt: string | null) => {
+    const start = formatGroupDate(startsAt);
+    const end = formatGroupDate(endsAt);
+
+    if (start && end) return `De ${start} ate ${end}`;
+    if (start) return `Comeca em ${start}`;
+    if (end) return `Termina em ${end}`;
+    return null;
   };
 
   const openManageGroup = async (groupId: string) => {
@@ -366,9 +424,9 @@ export default function StudyGroups() {
                           {group.memberCount} membros
                         </Text>
                       </View>
-                      {formatGroupEnd(group.endsAt) ? (
+                      {formatGroupPeriod(group.startsAt, group.endsAt) ? (
                         <Text style={styles.groupEnd}>
-                          Termina em {formatGroupEnd(group.endsAt)}
+                          {formatGroupPeriod(group.startsAt, group.endsAt)}
                         </Text>
                       ) : null}
                     </View>
@@ -496,13 +554,15 @@ export default function StudyGroups() {
                 multiline
                 textAlignVertical="top"
               />
-              <Text style={styles.inputLabel}>Tempo final</Text>
-              <TextInput
-                style={styles.input}
+              <Text style={styles.inputLabel}>Data de inicio</Text>
+              <DateTimeField
+                value={newGroupStartsAt}
+                onChangeText={setNewGroupStartsAt}
+              />
+              <Text style={styles.inputLabel}>Data final</Text>
+              <DateTimeField
                 value={newGroupEndsAt}
                 onChangeText={setNewGroupEndsAt}
-                placeholder="ex.: 2026-12-20 18:00"
-                placeholderTextColor="#9ca3af"
               />
               <Pressable
                 style={({ pressed }) => [

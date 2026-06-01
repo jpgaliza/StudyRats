@@ -22,14 +22,26 @@ class GroupController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'starts_at' => 'nullable|date',
             'ends_at' => 'nullable|date',
         ]);
+
+        if (
+            !empty($validated['starts_at']) &&
+            !empty($validated['ends_at']) &&
+            strtotime($validated['ends_at']) < strtotime($validated['starts_at'])
+        ) {
+            return response()->json([
+                'message' => 'A data final precisa ser depois da data de inicio.',
+            ], 422);
+        }
 
         $userId = $request->user()->id;
 
         $group = Group::create([
             'name'        => $validated['name'],
             'description' => $validated['description'] ?? null,
+            'starts_at'   => $validated['starts_at'] ?? null,
             'ends_at'     => $validated['ends_at'] ?? null,
             'owner_id'    => $userId,
             'invite_code' => $this->generateInviteCode(),
@@ -87,12 +99,24 @@ class GroupController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'starts_at' => 'nullable|date',
             'ends_at' => 'nullable|date',
         ]);
+
+        if (
+            $request->filled('starts_at') &&
+            $request->filled('ends_at') &&
+            strtotime($request->ends_at) < strtotime($request->starts_at)
+        ) {
+            return response()->json([
+                'message' => 'A data final precisa ser depois da data de inicio.',
+            ], 422);
+        }
 
         $group->update([
             'name' => $request->name,
             'description' => $request->description,
+            'starts_at' => $request->starts_at,
             'ends_at' => $request->ends_at,
         ]);
 

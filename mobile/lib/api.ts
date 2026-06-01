@@ -13,6 +13,7 @@ export interface BackendGroup {
   id: number;
   name: string;
   description?: string | null;
+  starts_at?: string | null;
   ends_at?: string | null;
   owner_id: number;
   invite_code: string;
@@ -392,6 +393,7 @@ export async function getGroup(groupId: string | number) {
 export async function createGroup(payload: {
   name: string;
   description?: string | null;
+  starts_at?: string | null;
   ends_at?: string | null;
 }) {
   return request<BackendGroup>("/groups", {
