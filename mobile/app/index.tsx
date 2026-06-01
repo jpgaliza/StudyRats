@@ -1,10 +1,6 @@
-import { router } from "expo-router";
-import { useEffect } from "react";
+import { Redirect } from "expo-router";
+import { getSessionToken } from "@/lib/api";
 
 export default function Index() {
-  useEffect(() => {
-    router.replace("/welcome");
-  }, []);
-
-  return null;
+  return <Redirect href={getSessionToken() ? "/(tabs)" : "/login"} />;
 }

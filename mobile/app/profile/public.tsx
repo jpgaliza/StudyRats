@@ -73,7 +73,7 @@ export default function PublicProfile() {
       return;
     }
 
-    router.replace("/groups" as never);
+    router.replace("/(tabs)/groups" as never);
   };
 
   return (

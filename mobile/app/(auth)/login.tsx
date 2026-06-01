@@ -63,7 +63,7 @@ export default function Login({ onLoggedIn }: LoginProps = {}) {
         if (onLoggedIn) {
           onLoggedIn();
         } else {
-          router.replace("/" as never);
+          router.replace("/(tabs)" as never);
         }
       });
     } catch (error) {

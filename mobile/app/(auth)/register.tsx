@@ -89,7 +89,7 @@ export default function Register() {
       setSession(loginResponse.token, loginResponse.user);
       setFeedback({ type: "success", message: "Conta criada! Entrando..." });
       queueMicrotask(() => {
-        router.replace("/" as never);
+        router.replace("/(tabs)" as never);
       });
     } catch (error) {
       const message =

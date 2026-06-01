@@ -277,7 +277,7 @@ export default function Dashboard() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Meus grupos</Text>
-            <Link href="/groups" asChild>
+            <Link href="/(tabs)/groups" asChild>
               <Pressable>
                 <Text style={styles.viewAllLink}>Ver todos</Text>
               </Pressable>
