@@ -298,7 +298,7 @@ export default function Leaderboard() {
             </View>
           ) : (
             <View style={styles.rankingContent}>
-              {currentMember ? (
+              {!showFullRanking && currentMember ? (
                 <Pressable
                   style={styles.profileRankCard}
                   onPress={() => {
@@ -328,14 +328,14 @@ export default function Leaderboard() {
                     <Text style={styles.scoreLabel}>ranking</Text>
                   </View>
                 </Pressable>
-              ) : (
+              ) : !showFullRanking ? (
                 <View style={styles.profileRankCard}>
                   <View style={styles.profileAccent} />
                   <Text style={styles.emptyText}>
                     Voce ainda nao tem check-ins neste periodo.
                   </Text>
                 </View>
-              )}
+              ) : null}
 
               {!showFullRanking && members.length ? (
                 <Pressable

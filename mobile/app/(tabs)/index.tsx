@@ -194,7 +194,7 @@ export default function Dashboard() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
-            Ola, <Text style={styles.headerName}>{userName}</Text>
+            Olá, <Text style={styles.headerName}>{userName}</Text>
           </Text>
           <Text style={styles.headerSubtitle}>
             Pronto para dominar os estudos de hoje?
@@ -215,22 +215,22 @@ export default function Dashboard() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Zap size={24} color="#fff" />
+            <Zap size={26} color="#fff" />
             <Text style={styles.checkInText}>Check-in de estudo</Text>
           </LinearGradient>
         </Pressable>
 
         {/* Quick Stats */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Resumo rapido</Text>
+          <Text style={styles.cardTitle}>Resumo rápido</Text>
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, styles.statBoxOrange]}>
               <View style={styles.statHeader}>
                 <Flame size={20} color="#f97316" />
-                <Text style={styles.statLabel}>Sequencia atual</Text>
+                <Text style={styles.statLabel}>Sequência atual</Text>
               </View>
               <Text style={styles.statValue}>{streakDays}</Text>
-              <Text style={styles.statUnit}>dias</Text>
+              <Text style={styles.statUnit}>DIAS</Text>
             </View>
             <View style={[styles.statBox, styles.statBoxGreen]}>
               <View style={styles.statHeader}>
@@ -238,7 +238,7 @@ export default function Dashboard() {
                 <Text style={styles.statLabel}>Nesta semana</Text>
               </View>
               <Text style={styles.statValue}>{weeklyCheckIns}</Text>
-              <Text style={styles.statUnit}>check-ins</Text>
+              <Text style={styles.statUnit}>CHECK-INS</Text>
             </View>
           </View>
         </View>
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "900",
     color: "#111827",
-    letterSpacing: -1,
+    letterSpacing: 0,
     textAlign: "center",
   },
   headerName: {
@@ -460,13 +460,13 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 16,
-    color: "#6b7280",
+    color: "#94a3b8",
     marginTop: 8,
   },
   checkInButton: {
     borderRadius: 16,
     overflow: "hidden",
-    marginBottom: 24,
+    marginBottom: 30,
     shadowColor: "#0ea5e9",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -481,13 +481,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 20,
+    paddingVertical: 16,
     gap: 12,
   },
   checkInText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
   },
   card: {
     backgroundColor: "#fff",
@@ -575,11 +575,11 @@ const styles = StyleSheet.create({
   },
   statBoxOrange: {
     backgroundColor: "#fff7ed",
-    borderColor: "#fed7aa",
+    borderColor: "#fdba74",
   },
   statBoxGreen: {
     backgroundColor: "#f0fdf4",
-    borderColor: "#bbf7d0",
+    borderColor: "#86efac",
   },
   statHeader: {
     flexDirection: "row",
@@ -592,13 +592,16 @@ const styles = StyleSheet.create({
     color: "#6b7280",
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: "900",
     color: "#0ea5e9",
+    lineHeight: 38,
   },
   statUnit: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#6b7280",
+    fontWeight: "800",
+    letterSpacing: 0.6,
     marginTop: 4,
   },
   groupsList: {

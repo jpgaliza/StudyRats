@@ -160,7 +160,7 @@ export default function Leaderboard() {
             <Text style={styles.cardSubtitle}>Check-ins deste mes</Text>
           </View>
           <View style={styles.rankingContent}>
-            {currentMember ? (
+            {!showFullRanking && currentMember ? (
               <View style={styles.profileRankCard}>
                 <View style={styles.profileAccent} />
                 <InitialAvatar
@@ -184,7 +184,7 @@ export default function Leaderboard() {
               </View>
             ) : null}
 
-            {!showFullRanking ? (
+            {!showFullRanking && group.allMembers.length ? (
               <Pressable
                 style={({ pressed }) => [
                   styles.secondaryButton,
