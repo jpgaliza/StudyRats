@@ -21,6 +21,8 @@ class GroupApiTest extends TestCase
 
         $created = $this->postJson('/api/groups', [
             'name' => 'Matematica',
+            'starts_at' => now()->toDateTimeString(),
+            'ends_at' => now()->addWeek()->toDateTimeString(),
         ]);
 
         $created
@@ -42,6 +44,26 @@ class GroupApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonPath('0.name', 'Matematica');
+    }
+
+    public function test_group_start_date_cannot_be_before_today(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/groups', [
+            'name' => 'Grupo antigo',
+            'starts_at' => now()->subDay()->toDateTimeString(),
+            'ends_at' => now()->addDay()->toDateTimeString(),
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'A data de inicio nao pode ser anterior a hoje.');
+
+        $this->postJson('/api/groups', [
+            'name' => 'Grupo valido',
+            'starts_at' => now()->toDateTimeString(),
+            'ends_at' => now()->addDay()->toDateTimeString(),
+        ])->assertCreated();
     }
 
     public function test_user_can_join_group_with_invite_code(): void
@@ -150,7 +172,42 @@ class GroupApiTest extends TestCase
             ->assertJsonPath('message', 'Voce foi removido deste grupo e nao pode entrar novamente');
     }
 
-    public function test_user_can_check_in_once_per_day_in_each_group(): void
+    public function test_owner_can_delete_group_for_all_members(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+
+        $group = Group::create([
+            'name' => 'Grupo descartavel',
+            'owner_id' => $owner->id,
+            'invite_code' => 'DEL123',
+        ]);
+        $group->users()->attach([$owner->id, $member->id]);
+
+        Sanctum::actingAs($owner);
+
+        $this->deleteJson("/api/groups/{$group->id}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Deleted');
+
+        $this->assertDatabaseMissing('groups', ['id' => $group->id]);
+        $this->assertDatabaseMissing('group_user', [
+            'group_id' => $group->id,
+            'user_id' => $owner->id,
+        ]);
+        $this->assertDatabaseMissing('group_user', [
+            'group_id' => $group->id,
+            'user_id' => $member->id,
+        ]);
+
+        Sanctum::actingAs($member);
+
+        $this->getJson('/api/groups')
+            ->assertOk()
+            ->assertJsonCount(0);
+    }
+
+    public function test_user_can_check_in_once_per_hour_in_each_group(): void
     {
         Storage::fake('public');
 
@@ -180,14 +237,21 @@ class GroupApiTest extends TestCase
             'image' => $this->fakePngUpload('geometria.png'),
         ])
             ->assertStatus(429)
-            ->assertJsonPath('message', 'Voce ja fez check-in hoje neste grupo.');
+            ->assertJsonPath('message', 'Voce ja fez check-in nesta hora neste grupo.');
 
         $this->postJson("/api/groups/{$secondGroup->id}/check-ins", [
             'topic' => 'Cinematica',
             'image' => $this->fakePngUpload('cinematica.png'),
         ])->assertCreated();
 
-        $this->assertDatabaseCount('check_ins', 2);
+        $this->travel(61)->minutes();
+
+        $this->postJson("/api/groups/{$firstGroup->id}/check-ins", [
+            'topic' => 'Trigonometria',
+            'image' => $this->fakePngUpload('trigonometria.png'),
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('check_ins', 3);
     }
 
     private function fakePngUpload(string $name): UploadedFile

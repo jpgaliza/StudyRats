@@ -29,17 +29,16 @@ interface CheckInModalProps {
   onSubmitted?: () => void;
 }
 
-let checkedInTodayByUserGroup: Record<string, boolean> = {};
+let lastCheckInAtByUserGroup: Record<string, string> = {};
 
 function checkInKey(userId?: number, groupId?: string) {
   return userId && groupId ? `${userId}:${groupId}` : null;
 }
 
-function isToday(iso: string) {
+function isWithinLastHour(iso: string) {
   const date = new Date(iso);
   if (!Number.isFinite(date.getTime())) return false;
-  const now = new Date();
-  return date.toDateString() === now.toDateString();
+  return Date.now() - date.getTime() < 60 * 60 * 1000;
 }
 
 export function CheckInModal({
@@ -56,7 +55,7 @@ export function CheckInModal({
   const [filename, setFilename] = useState<string | undefined>();
   const [showSuccess, setShowSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+  const [hasCheckedInThisHour, setHasCheckedInThisHour] = useState(false);
 
   const currentUser = getSessionUser();
   const localCheckInKey = useMemo(
@@ -76,30 +75,35 @@ export function CheckInModal({
   useEffect(() => {
     if (!isOpen || !currentUser?.id || !groupId) return;
 
-    if (localCheckInKey && checkedInTodayByUserGroup[localCheckInKey]) {
-      setHasCheckedInToday(true);
+    const localLastCheckInAt = localCheckInKey
+      ? lastCheckInAtByUserGroup[localCheckInKey]
+      : null;
+
+    if (localLastCheckInAt && isWithinLastHour(localLastCheckInAt)) {
+      setHasCheckedInThisHour(true);
     } else {
-      setHasCheckedInToday(false);
+      setHasCheckedInThisHour(false);
     }
 
     let cancelled = false;
     getFeedCheckIns(100)
       .then((items) => {
         if (cancelled) return;
-        const hasToday = items.some(
+        const lastCheckIn = items.find(
           (item) =>
             item.user.id === currentUser.id &&
             String(item.group?.id) === String(groupId) &&
-            isToday(item.created_at),
+            isWithinLastHour(item.created_at),
         );
-        setHasCheckedInToday(hasToday);
-        if (hasToday && localCheckInKey) {
-          checkedInTodayByUserGroup[localCheckInKey] = true;
+        setHasCheckedInThisHour(Boolean(lastCheckIn));
+        if (lastCheckIn && localCheckInKey) {
+          lastCheckInAtByUserGroup[localCheckInKey] = lastCheckIn.created_at;
         }
       })
       .catch(() => {
         if (!cancelled && localCheckInKey) {
-          setHasCheckedInToday(Boolean(checkedInTodayByUserGroup[localCheckInKey]));
+          const lastCheckInAt = lastCheckInAtByUserGroup[localCheckInKey];
+          setHasCheckedInThisHour(Boolean(lastCheckInAt && isWithinLastHour(lastCheckInAt)));
         }
       });
 
@@ -158,10 +162,10 @@ export function CheckInModal({
       return;
     }
 
-    if (hasCheckedInToday) {
+    if (hasCheckedInThisHour) {
       Alert.alert(
         "Check-in ja registrado",
-        "Voce ja fez check-in hoje neste grupo. Em outro grupo, voce ainda pode registrar.",
+        "Voce ja fez check-in nesta hora neste grupo. Em outro grupo, voce ainda pode registrar.",
       );
       return;
     }
@@ -186,9 +190,9 @@ export function CheckInModal({
         filename,
       });
       if (localCheckInKey) {
-        checkedInTodayByUserGroup[localCheckInKey] = true;
+        lastCheckInAtByUserGroup[localCheckInKey] = new Date().toISOString();
       }
-      setHasCheckedInToday(true);
+      setHasCheckedInThisHour(true);
       setShowSuccess(true);
       onSubmitted?.();
       setTimeout(() => {
@@ -297,14 +301,14 @@ export function CheckInModal({
                 <Pressable
                   style={[
                     styles.submitButton,
-                    (busy || hasCheckedInToday) && styles.submitDisabled,
+                    (busy || hasCheckedInThisHour) && styles.submitDisabled,
                   ]}
                   onPress={() => void handleSubmit()}
-                  disabled={busy || hasCheckedInToday}
+                  disabled={busy || hasCheckedInThisHour}
                 >
                   <LinearGradient
                     colors={
-                      hasCheckedInToday ? ["#94a3b8", "#64748b"] : ["#0ea5e9", "#0284c7"]
+                      hasCheckedInThisHour ? ["#94a3b8", "#64748b"] : ["#0ea5e9", "#0284c7"]
                     }
                     style={styles.submitGradient}
                     start={{ x: 0, y: 0 }}
@@ -316,17 +320,17 @@ export function CheckInModal({
                       <View style={styles.submitContent}>
                         <Upload size={18} color="#fff" />
                         <Text style={styles.submitText}>
-                          {hasCheckedInToday
-                            ? "Check-in de hoje ja feito"
+                          {hasCheckedInThisHour
+                            ? "Check-in desta hora ja feito"
                             : "Confirmar check-in"}
                         </Text>
                       </View>
                     )}
                   </LinearGradient>
                 </Pressable>
-                {hasCheckedInToday ? (
+                {hasCheckedInThisHour ? (
                   <Text style={styles.cooldownHint}>
-                    Limite de 1 check-in por dia apenas neste grupo.
+                    Limite de 1 check-in por hora apenas neste grupo.
                   </Text>
                 ) : null}
               </View>

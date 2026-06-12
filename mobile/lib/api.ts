@@ -409,6 +409,13 @@ export async function joinGroup(payload: { code: string }) {
   });
 }
 
+export async function deleteGroup(groupId: string | number) {
+  return request<{ message: string }>(
+    `/groups/${encodeURIComponent(String(groupId))}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function removeGroupMember(groupId: string | number, userId: string | number) {
   return request<{ message: string }>(
     `/groups/${encodeURIComponent(String(groupId))}/members/${encodeURIComponent(String(userId))}`,

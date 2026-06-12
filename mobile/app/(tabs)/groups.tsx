@@ -13,11 +13,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Plus, ArrowRight, Users, X, Crown, Settings, UserMinus } from "lucide-react-native";
+import { Plus, ArrowRight, Users, X, UserMinus, CalendarDays, Copy, Check, Trash2, ChartNoAxesColumn } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ApiRequestError,
   createGroup,
+  deleteGroup,
   defaultAvatarUrl,
   getGroup,
   getGroups,
@@ -27,7 +28,6 @@ import {
   joinGroup,
   removeGroupMember,
   resolveStorageUrl,
-  transferGroupOwnership,
   type BackendGroup,
   type BackendUser,
 } from "@/lib/api";
@@ -70,11 +70,42 @@ const webDateInputStyle = {
   width: "100%",
 };
 
+function todayDateMin() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function parseCalendarDate(value: string) {
+  const datePart = value.trim().split("T")[0];
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(datePart);
+
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function isBeforeToday(value: string) {
+  if (!value.trim()) return false;
+  const date = parseCalendarDate(value);
+  if (!date) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
+}
+
 function DateTimeField({ value, onChangeText }: DateTimeFieldProps) {
   if (Platform.OS === "web") {
     return createElement("input", {
-      type: "datetime-local",
+      type: "date",
       value,
+      min: todayDateMin(),
       onChange: (event: { target: { value: string } }) =>
         onChangeText(event.target.value),
       style: webDateInputStyle as any,
@@ -108,8 +139,24 @@ export default function StudyGroups() {
   const [managingGroup, setManagingGroup] = useState<BackendGroup | null>(null);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<BackendUser | null>(null);
+  const [groupToDelete, setGroupToDelete] = useState<GroupItem | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const currentUserId = getSessionUser()?.id;
+
+  const copyInviteCode = async (code: string) => {
+    try {
+      if (Platform.OS === "web" && navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        await Promise.resolve();
+      }
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode((current) => (current === code ? null : current)), 1400);
+    } catch {
+      Alert.alert("Codigo", "Nao foi possivel copiar o codigo automaticamente.");
+    }
+  };
 
   const mapGroups = (apiGroups: BackendGroup[]): GroupItem[] =>
     apiGroups.map((group) => ({
@@ -189,13 +236,43 @@ export default function StudyGroups() {
       return;
     }
 
+    if (!newGroupStartsAt.trim()) {
+      Alert.alert("Dados faltando", "Informe a data de inicio do grupo.");
+      return;
+    }
+
+    if (!newGroupEndsAt.trim()) {
+      Alert.alert("Dados faltando", "Informe a data final do grupo.");
+      return;
+    }
+
+    if (isBeforeToday(newGroupStartsAt)) {
+      Alert.alert("Data invalida", "A data de inicio nao pode ser anterior a hoje.");
+      return;
+    }
+
+    if (isBeforeToday(newGroupEndsAt)) {
+      Alert.alert("Data invalida", "A data final nao pode ser anterior a hoje.");
+      return;
+    }
+
+    if (
+      newGroupStartsAt.trim() &&
+      newGroupEndsAt.trim() &&
+      (parseCalendarDate(newGroupEndsAt)?.getTime() ?? 0) <
+        (parseCalendarDate(newGroupStartsAt)?.getTime() ?? 0)
+    ) {
+      Alert.alert("Data invalida", "A data final precisa ser depois da data de inicio.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       await createGroup({
         name: newGroupName.trim(),
         description: newGroupDescription.trim() || null,
-        starts_at: newGroupStartsAt.trim() || null,
-        ends_at: newGroupEndsAt.trim() || null,
+        starts_at: newGroupStartsAt.trim(),
+        ends_at: newGroupEndsAt.trim(),
       });
       Alert.alert("Grupo criado!", `Grupo "${newGroupName.trim()}" criado!`);
       setNewGroupName("");
@@ -252,26 +329,29 @@ export default function StudyGroups() {
 
   const formatGroupDate = (iso: string | null) => {
     if (!iso) return null;
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return null;
+    const date = parseCalendarDate(iso);
+    if (!date) return null;
 
     return new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     }).format(date);
   };
 
-  const formatGroupPeriod = (startsAt: string | null, endsAt: string | null) => {
+  const renderGroupPeriod = (startsAt: string | null, endsAt: string | null) => {
     const start = formatGroupDate(startsAt);
     const end = formatGroupDate(endsAt);
 
-    if (start && end) return `De ${start} ate ${end}`;
-    if (start) return `Comeca em ${start}`;
-    if (end) return `Termina em ${end}`;
-    return null;
+    return (
+      <View style={styles.groupPeriodBox}>
+        <CalendarDays size={15} color="#0ea5e9" />
+        <Text style={styles.groupPeriodLine}>
+          {start ?? "nao definido"} <Text style={styles.groupPeriodArrow}>→</Text>{" "}
+          {end ?? "nao definido"}
+        </Text>
+      </View>
+    );
   };
 
   const openManageGroup = async (groupId: string) => {
@@ -319,28 +399,24 @@ export default function StudyGroups() {
     }
   };
 
-  const handleTransferOwnership = (member: BackendUser) => {
-    if (!managingGroup) return;
-    Alert.alert("Transferir lideranca", `Transferir a lideranca para ${member.name}?`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Transferir",
-        onPress: async () => {
-          try {
-            setIsSubmitting(true);
-            await transferGroupOwnership(managingGroup.id, member.id);
-            Alert.alert("Lideranca transferida", `${member.name} agora e dono do grupo.`);
-            await refreshManagingGroup();
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Nao foi possivel transferir.";
-            Alert.alert("Membros", message);
-          } finally {
-            setIsSubmitting(false);
-          }
-        },
-      },
-    ]);
+  const deleteGroupForEveryone = async (group: GroupItem) => {
+    try {
+      setIsSubmitting(true);
+      await deleteGroup(group.id);
+      Alert.alert("Grupo excluído", `"${group.name}" foi apagado para todos.`);
+      setGroupToDelete(null);
+      await loadGroups();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Não foi possível excluir o grupo.";
+      Alert.alert("Excluir grupo", message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteGroup = (group: GroupItem) => {
+    setGroupToDelete(group);
   };
 
   return (
@@ -412,7 +488,9 @@ export default function StudyGroups() {
                 >
                   <View style={styles.groupHeader}>
                     <View style={styles.groupInfo}>
-                      <Text style={styles.groupName}>{group.name}</Text>
+                      <Text style={styles.groupName}>
+                        {group.name.charAt(0).toUpperCase() + group.name.slice(1)}
+                      </Text>
                       {group.description ? (
                         <Text style={styles.groupDescription} numberOfLines={2}>
                           {group.description}
@@ -421,40 +499,73 @@ export default function StudyGroups() {
                       <View style={styles.groupMeta}>
                         <Users size={16} color="#6b7280" />
                         <Text style={styles.groupMembers}>
-                          {group.memberCount} membros
+                          {group.memberCount} {group.memberCount === 1 ? "membro" : "membros"}
                         </Text>
                       </View>
-                      {formatGroupPeriod(group.startsAt, group.endsAt) ? (
-                        <Text style={styles.groupEnd}>
-                          {formatGroupPeriod(group.startsAt, group.endsAt)}
-                        </Text>
-                      ) : null}
+                      {renderGroupPeriod(group.startsAt, group.endsAt)}
                     </View>
-                    <View style={styles.groupCode}>
-                      <Text style={styles.codeLabel}>Codigo</Text>
-                      <Text style={styles.codeValue}>{group.code}</Text>
-                    </View>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.groupCode,
+                        pressed && styles.groupCodePressed,
+                      ]}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        void copyInviteCode(group.code);
+                      }}
+                    >
+                      <Text style={styles.codeLabel}>Código</Text>
+                      <View style={styles.codeValueRow}>
+                        <Text style={styles.codeValue}>{group.code}</Text>
+                        {copiedCode === group.code ? (
+                          <Check size={14} color="#16a34a" />
+                        ) : (
+                          <Copy size={14} color="#0ea5e9" />
+                        )}
+                      </View>
+                    </Pressable>
                   </View>
 
-                  <Pressable
-                    style={styles.manageButton}
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      void openManageGroup(group.id);
-                    }}
-                    disabled={isLoadingMembers}
-                  >
-                    <Settings size={16} color="#0f766e" />
-                    <Text style={styles.manageButtonText}>
-                      {group.ownerId === currentUserId
-                        ? "Gerenciar membros"
-                        : "Ver membros"}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.groupActions}>
+                    <Pressable
+                      style={styles.manageButton}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        void openManageGroup(group.id);
+                      }}
+                      disabled={isLoadingMembers}
+                    >
+                        <Users size={16} color="#0f766e" />
+                      <Text style={styles.manageButtonText}>
+                        {group.ownerId === currentUserId
+                          ? "Gerenciar membros"
+                          : "Ver membros"}
+                      </Text>
+                    </Pressable>
+                    {group.ownerId === currentUserId ? (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.deleteGroupButton,
+                          pressed && styles.deleteGroupButtonPressed,
+                        ]}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          handleDeleteGroup(group);
+                        }}
+                        disabled={isSubmitting}
+                      >
+                        <Trash2 size={16} color="#b91c1c" />
+                        <Text style={styles.deleteGroupButtonText}>
+                          Excluir
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
 
                   <View style={styles.leaderboardPreview}>
                     <View style={styles.previewHeader}>
-                      <Text style={styles.previewTitle}>🏆 Top 3 do ranking</Text>
+                      <ChartNoAxesColumn size={16} color="#64748b" />
+                      <Text style={styles.previewTitle}>Top 3 do ranking</Text>
                     </View>
                     {group.topMembers.length > 0 ? (
                       <View style={styles.topMembers}>
@@ -494,9 +605,12 @@ export default function StudyGroups() {
                         ))}
                       </View>
                     ) : (
-                      <Text style={styles.mockNotice}>
-                        Ainda nao ha dados de ranking para este grupo.
-                      </Text>
+                      <View style={styles.emptyRanking}>
+                        <ChartNoAxesColumn size={18} color="#94a3b8" />
+                        <Text style={styles.mockNotice}>
+                          Ainda não há dados de ranking para este grupo.
+                        </Text>
+                      </View>
                     )}
                   </View>
                 </Pressable>
@@ -703,26 +817,14 @@ export default function StudyGroups() {
                         <Text style={styles.manageName} numberOfLines={1}>
                           {member.name}{isCurrentUser ? " (Voce)" : ""}
                         </Text>
-                        <Text style={styles.manageUsername}>
-                          @{member.username || member.email.split("@")[0]}
-                        </Text>
                       </View>
                     </Pressable>
                     {isOwner ? (
-                      <Crown size={20} color="#f59e0b" />
+                      <View style={styles.adminBadge}>
+                        <Text style={styles.adminBadgeText}>adm</Text>
+                      </View>
                     ) : canManageMembers ? (
                       <View style={styles.memberActions}>
-                        <Pressable
-                          style={styles.iconButton}
-                          hitSlop={8}
-                          onPress={(event) => {
-                            event.stopPropagation();
-                            handleTransferOwnership(member);
-                          }}
-                          disabled={isSubmitting}
-                        >
-                          <Crown size={18} color="#0ea5e9" />
-                        </Pressable>
                         <Pressable
                           style={[styles.iconButton, styles.removeButton]}
                           hitSlop={8}
@@ -779,6 +881,52 @@ export default function StudyGroups() {
               >
                 <Text style={styles.dangerButtonText}>
                   {isSubmitting ? "Removendo..." : "Expulsar"}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={Boolean(groupToDelete)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGroupToDelete(null)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => !isSubmitting && setGroupToDelete(null)}
+        >
+          <Pressable
+            style={styles.confirmContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.confirmTitle}>Excluir grupo?</Text>
+            <Text style={styles.confirmText}>
+              {groupToDelete
+                ? `${groupToDelete.name} será apagado para todos os membros.`
+                : ""}
+            </Text>
+            <View style={styles.confirmActions}>
+              <Pressable
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={() => setGroupToDelete(null)}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmButton, styles.dangerButton]}
+                onPress={() => {
+                  if (!groupToDelete) return;
+                  const target = groupToDelete;
+                  void deleteGroupForEveryone(target);
+                }}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.dangerButtonText}>
+                  {isSubmitting ? "Excluindo..." : "Excluir"}
                 </Text>
               </Pressable>
             </View>
@@ -895,21 +1043,23 @@ const styles = StyleSheet.create({
   groupHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 16,
+    gap: 14,
   },
   groupInfo: {
     flex: 1,
   },
   groupName: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "900",
     color: "#111827",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   groupDescription: {
-    fontSize: 13,
-    color: "#4b5563",
-    lineHeight: 18,
+    fontSize: 12,
+    color: "#64748b",
+    lineHeight: 17,
     marginBottom: 10,
   },
   groupMeta: {
@@ -921,25 +1071,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
   },
-  groupEnd: {
-    fontSize: 12,
-    color: "#0f766e",
-    fontWeight: "700",
-    marginTop: 8,
-  },
-  groupCode: {
-    backgroundColor: "#eff6ff",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
-    alignItems: "center",
-  },
-  manageButton: {
-    alignSelf: "flex-start",
+  groupPeriodBox: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+  groupPeriodLine: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: "700",
+  },
+  groupPeriodArrow: {
+    color: "#94a3b8",
+    fontWeight: "900",
+  },
+  groupCode: {
+    backgroundColor: "#f8fbff",
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    minWidth: 0,
+    gap: 2,
+  },
+  groupCodePressed: {
+    backgroundColor: "#dbeafe",
+    transform: [{ scale: 0.98 }],
+  },
+  groupActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 16,
+  },
+  manageButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     backgroundColor: "#f0fdfa",
     borderWidth: 1,
@@ -947,35 +1123,64 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    marginBottom: 16,
   },
   manageButtonText: {
     color: "#0f766e",
     fontSize: 13,
     fontWeight: "700",
   },
+  deleteGroupButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(0, 0, 0, 0)",
+    borderWidth: 1,
+    borderColor: "#fca5a5",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    minWidth: 96,
+  },
+  deleteGroupButtonPressed: {
+    backgroundColor: "#fef2f2",
+  },
+  deleteGroupButtonText: {
+    color: "#b91c1c",
+    fontSize: 13,
+    fontWeight: "800",
+  },
   codeLabel: {
     fontSize: 10,
-    color: "#6b7280",
+    color: "#94a3b8",
+  },
+  codeValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   codeValue: {
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "800",
     color: "#0ea5e9",
   },
   leaderboardPreview: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#f8fbff",
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#dbeafe",
   },
   previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 12,
   },
   previewTitle: {
-    fontSize: 12,
-    color: "#6b7280",
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#475569",
   },
   topMembers: {
     gap: 8,
@@ -1016,7 +1221,14 @@ const styles = StyleSheet.create({
   },
   mockNotice: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#94a3b8",
+    lineHeight: 18,
+    flex: 1,
+  },
+  emptyRanking: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   loadingBox: {
     alignItems: "center",
@@ -1106,10 +1318,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
-  manageUsername: {
-    color: "#6b7280",
+  adminBadge: {
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+    backgroundColor: "#f0f9ff",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  adminBadgeText: {
+    color: "#0284c7",
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   memberActions: {
     flexDirection: "row",

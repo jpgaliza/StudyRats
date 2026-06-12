@@ -25,15 +25,15 @@ class CheckInController extends Controller
             'image' => 'required|image|max:5120',
         ]);
 
-        $alreadyCheckedInToday = CheckIn::query()
+        $alreadyCheckedInThisHour = CheckIn::query()
             ->where('user_id', $request->user()->id)
             ->where('group_id', $group->id)
-            ->whereDate('created_at', now()->toDateString())
+            ->where('created_at', '>=', now()->subHour())
             ->exists();
 
-        if ($alreadyCheckedInToday) {
+        if ($alreadyCheckedInThisHour) {
             return response()->json([
-                'message' => 'Voce ja fez check-in hoje neste grupo.',
+                'message' => 'Voce ja fez check-in nesta hora neste grupo.',
             ], 429);
         }
 

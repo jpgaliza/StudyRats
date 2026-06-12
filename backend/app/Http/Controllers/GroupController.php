@@ -22,8 +22,13 @@ class GroupController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'starts_at' => 'nullable|date',
-            'ends_at' => 'nullable|date',
+            'starts_at' => 'required|date|after_or_equal:today',
+            'ends_at' => 'required|date|after_or_equal:today',
+        ], [
+            'starts_at.required' => 'Informe a data de inicio do grupo.',
+            'ends_at.required' => 'Informe a data final do grupo.',
+            'starts_at.after_or_equal' => 'A data de inicio nao pode ser anterior a hoje.',
+            'ends_at.after_or_equal' => 'A data final nao pode ser anterior a hoje.',
         ]);
 
         if (
@@ -92,15 +97,20 @@ class GroupController extends Controller
     {
         $group = Group::findOrFail($id);
 
-        if ($group->owner_id !== auth()->id()) {
+        if ($group->owner_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'starts_at' => 'nullable|date',
-            'ends_at' => 'nullable|date',
+            'starts_at' => 'required|date|after_or_equal:today',
+            'ends_at' => 'required|date|after_or_equal:today',
+        ], [
+            'starts_at.required' => 'Informe a data de inicio do grupo.',
+            'ends_at.required' => 'Informe a data final do grupo.',
+            'starts_at.after_or_equal' => 'A data de inicio nao pode ser anterior a hoje.',
+            'ends_at.after_or_equal' => 'A data final nao pode ser anterior a hoje.',
         ]);
 
         if (
@@ -123,11 +133,11 @@ class GroupController extends Controller
         return response()->json($group);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $group = Group::findOrFail($id);
 
-        if ($group->owner_id !== auth()->id()) {
+        if ($group->owner_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

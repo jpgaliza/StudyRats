@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   AlertCircle,
   Zap,
-  Trophy,
-  Medal,
+  Crown,
 } from "lucide-react-native";
 import {
   useFocusEffect,
@@ -27,6 +27,7 @@ import {
   getLeaderboard,
   getSessionToken,
   getSessionUser,
+  resolveStorageUrl,
   type LeaderboardMember,
 } from "@/lib/api";
 
@@ -37,6 +38,84 @@ const periodLabel: Record<Period, string> = {
   weekly: "semana",
   monthly: "mes",
 };
+
+function getInitial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || "?";
+}
+
+function formatRank(rank: number) {
+  return `${rank}º`;
+}
+
+function InitialAvatar({
+  uri,
+  name,
+  style,
+  textStyle,
+}: {
+  uri?: string | null;
+  name: string;
+  style: object;
+  textStyle: object;
+}) {
+  const [failed, setFailed] = useState(false);
+  const resolvedUri = resolveStorageUrl(uri ?? null) || uri;
+
+  if (resolvedUri && !failed) {
+    return (
+      <Image
+        source={{ uri: resolvedUri }}
+        style={style}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <View style={[style, styles.initialAvatar]}>
+      <Text style={textStyle}>{getInitial(name)}</Text>
+    </View>
+  );
+}
+
+function AnimatedCheckInCount({
+  value,
+  isCurrentUser,
+}: {
+  value: number | string;
+  isCurrentUser: boolean;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(scale, {
+        toValue: 1.14,
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        friction: 6,
+        tension: 90,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scale, value]);
+
+  return (
+    <Animated.Text
+      style={[
+        styles.score,
+        isCurrentUser && styles.currentUserText,
+        { transform: [{ scale }] },
+      ]}
+    >
+      {value}
+    </Animated.Text>
+  );
+}
 
 export default function Leaderboard() {
   const params = useLocalSearchParams<{ groupId?: string }>();
@@ -50,8 +129,14 @@ export default function Leaderboard() {
   const [groupName, setGroupName] = useState("");
   const [members, setMembers] = useState<LeaderboardMember[]>([]);
   const [topThree, setTopThree] = useState<LeaderboardMember[]>([]);
+  const [showFullRanking, setShowFullRanking] = useState(false);
 
   const currentUserId = getSessionUser()?.id;
+  const currentMember = members.find((member) => member.user_id === currentUserId);
+
+  useEffect(() => {
+    setShowFullRanking(false);
+  }, [groupId, period]);
 
   const load = useCallback(async (silent = false) => {
     if (!groupId || !getSessionToken()) {
@@ -189,7 +274,7 @@ export default function Leaderboard() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Zap size={20} color="#fff" />
+            <Zap size={26} color="#fff" />
             <Text style={styles.checkInText}>
               Check-in para {groupName || "este grupo"}
             </Text>
@@ -212,8 +297,64 @@ export default function Leaderboard() {
               <Text style={styles.loadingText}>Carregando ranking...</Text>
             </View>
           ) : (
-            <View style={styles.leaderboardList}>
-              {members.map((member) => {
+            <View style={styles.rankingContent}>
+              {currentMember ? (
+                <Pressable
+                  style={styles.profileRankCard}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/profile/public",
+                      params: { groupId: String(groupId), userId: String(currentMember.user_id) },
+                    } as never);
+                  }}
+                >
+                  <View style={styles.profileAccent} />
+                  <InitialAvatar
+                    uri={currentMember.avatar}
+                    name={currentMember.name}
+                    style={styles.profileAvatar}
+                    textStyle={styles.profileAvatarInitial}
+                  />
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.profileName} numberOfLines={1}>
+                      {currentMember.name}
+                    </Text>
+                  </View>
+                  <View style={styles.profileScoreBox}>
+                    <AnimatedCheckInCount
+                      value={formatRank(currentMember.rank)}
+                      isCurrentUser
+                    />
+                    <Text style={styles.scoreLabel}>ranking</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <View style={styles.profileRankCard}>
+                  <View style={styles.profileAccent} />
+                  <Text style={styles.emptyText}>
+                    Voce ainda nao tem check-ins neste periodo.
+                  </Text>
+                </View>
+              )}
+
+              {!showFullRanking && members.length ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.secondaryButtonPressed,
+                  ]}
+                  onPress={() => setShowFullRanking(true)}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Ver todas as classificacoes
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {showFullRanking ? (
+                <>
+                  <View style={styles.leaderboardList}>
+                    {members.map((member) => {
                 const isCurrentUser = member.user_id === currentUserId;
                 return (
                   <Pressable
@@ -229,32 +370,12 @@ export default function Leaderboard() {
                       getRankStyle(member.rank, isCurrentUser),
                     ]}
                   >
-                    <View style={styles.rankContainer}>
-                      {member.rank <= 3 ? (
-                        member.rank === 1 ? (
-                          <Trophy size={20} color="#fbbf24" />
-                        ) : (
-                          <Medal
-                            size={20}
-                            color={
-                              member.rank === 2 ? "#d1d5db" : "#d97706"
-                            }
-                          />
-                        )
-                      ) : (
-                        <Text
-                          style={[
-                            styles.rankText,
-                            isCurrentUser && styles.currentUserText,
-                          ]}
-                        >
-                          #{member.rank}
-                        </Text>
-                      )}
-                    </View>
-                    <Image
-                      source={{ uri: member.avatar }}
+                    {isCurrentUser ? <View style={styles.currentUserAccent} /> : null}
+                    <InitialAvatar
+                      uri={member.avatar}
+                      name={member.name}
                       style={styles.avatar}
+                      textStyle={styles.avatarInitial}
                     />
                     <View style={styles.memberInfo}>
                       <Text
@@ -266,22 +387,31 @@ export default function Leaderboard() {
                         {member.name}
                         {isCurrentUser ? " (Voce)" : ""}
                       </Text>
-                      <Text style={styles.username}>@{member.username}</Text>
                     </View>
                     <View style={styles.scoreContainer}>
-                      <Text
-                        style={[
-                          styles.score,
-                          isCurrentUser && styles.currentUserText,
-                        ]}
-                      >
-                        {member.check_in_count}
-                      </Text>
-                      <Text style={styles.scoreLabel}>check-ins</Text>
+                      <AnimatedCheckInCount
+                        value={formatRank(member.rank)}
+                        isCurrentUser={isCurrentUser}
+                      />
+                      <Text style={styles.scoreLabel}>ranking</Text>
                     </View>
                   </Pressable>
                 );
-              })}
+                    })}
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.secondaryButtonPressed,
+                    ]}
+                    onPress={() => setShowFullRanking(false)}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      Remover ranking
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
               {!members.length && !loading ? (
                 <Text style={styles.emptyText}>Nenhum check-in neste periodo.</Text>
               ) : null}
@@ -295,9 +425,11 @@ export default function Leaderboard() {
             <View style={styles.podium}>
               {topThree[1] && (
                 <View style={[styles.podiumPlace, styles.place2]}>
-                  <Image
-                    source={{ uri: topThree[1].avatar }}
+                  <InitialAvatar
+                    uri={topThree[1].avatar}
+                    name={topThree[1].name}
                     style={styles.podiumAvatar2}
+                    textStyle={styles.podiumInitial2}
                   />
                   <Text style={styles.podiumName} numberOfLines={1}>
                     {topThree[1].name}
@@ -312,14 +444,17 @@ export default function Leaderboard() {
               )}
               {topThree[0] && (
                 <View style={[styles.podiumPlace, styles.place1]}>
-                  <Trophy
-                    size={24}
-                    color="#fbbf24"
-                    style={{ marginBottom: 4 }}
+                  <Crown
+                    size={28}
+                    color="#d97706"
+                    fill="#facc15"
+                    style={styles.crownIcon}
                   />
-                  <Image
-                    source={{ uri: topThree[0].avatar }}
+                  <InitialAvatar
+                    uri={topThree[0].avatar}
+                    name={topThree[0].name}
                     style={styles.podiumAvatar1}
+                    textStyle={styles.podiumInitial1}
                   />
                   <Text style={styles.podiumName} numberOfLines={1}>
                     {topThree[0].name}
@@ -334,9 +469,11 @@ export default function Leaderboard() {
               )}
               {topThree[2] && (
                 <View style={[styles.podiumPlace, styles.place3]}>
-                  <Image
-                    source={{ uri: topThree[2].avatar }}
+                  <InitialAvatar
+                    uri={topThree[2].avatar}
+                    name={topThree[2].name}
                     style={styles.podiumAvatar3}
+                    textStyle={styles.podiumInitial3}
                   />
                   <Text style={styles.podiumName} numberOfLines={1}>
                     {topThree[2].name}
@@ -412,24 +549,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   checkInButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: "hidden",
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 420,
     marginBottom: 24,
     shadowColor: "#0ea5e9",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 3,
   },
   buttonPressed: { opacity: 0.95, transform: [{ scale: 0.98 }] },
   checkInGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 18,
     gap: 12,
   },
-  checkInText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  checkInText: { color: "#fff", fontSize: 17, fontWeight: "800" },
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -438,10 +578,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: "row",
@@ -458,7 +598,85 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#22c55e",
   },
-  leaderboardList: { gap: 12 },
+  rankingContent: { gap: 16 },
+  profileRankCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: "#f8fbff",
+    borderWidth: 1,
+    borderColor: "#7dd3fc",
+    borderRadius: 14,
+    padding: 16,
+    overflow: "hidden",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  profileAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    backgroundColor: "#0ea5e9",
+  },
+  profileRankPill: {
+    width: 48,
+    alignItems: "center",
+    gap: 5,
+  },
+  profileRankText: {
+    color: "#0ea5e9",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  profileAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 3,
+    borderColor: "#bae6fd",
+  },
+  profileAvatarInitial: {
+    color: "#0369a1",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  profileInfo: { flex: 1, minWidth: 0 },
+  profileName: {
+    color: "#111827",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  profileUsername: {
+    color: "#64748b",
+    fontSize: 13,
+    marginTop: 3,
+  },
+  profileScoreBox: { alignItems: "flex-end" },
+  secondaryButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+    backgroundColor: "#f0f9ff",
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+  },
+  secondaryButtonPressed: {
+    backgroundColor: "#e0f2fe",
+    transform: [{ scale: 0.99 }],
+  },
+  secondaryButtonText: {
+    color: "#0284c7",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  leaderboardList: { gap: 16 },
   memberRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -466,33 +684,64 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
+    overflow: "hidden",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  currentUserRow: { backgroundColor: "#dbeafe", borderColor: "#0ea5e9" },
-  rank1Row: { backgroundColor: "#fef3c7", borderColor: "#fbbf24" },
-  rank2Row: { backgroundColor: "#f3f4f6", borderColor: "#d1d5db" },
-  rank3Row: { backgroundColor: "#fed7aa", borderColor: "#d97706" },
+  currentUserRow: { backgroundColor: "#f8fbff", borderColor: "#7dd3fc" },
+  rank1Row: { backgroundColor: "#fffbeb", borderColor: "#fbbf24" },
+  rank2Row: { backgroundColor: "#f8fafc", borderColor: "#cbd5e1" },
+  rank3Row: { backgroundColor: "#fff7ed", borderColor: "#fdba74" },
   normalRow: { backgroundColor: "#fff", borderColor: "#e5e7eb" },
-  rankContainer: { width: 48, alignItems: "center" },
+  currentUserAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    backgroundColor: "#0ea5e9",
+  },
+  rankContainer: { width: 50, alignItems: "center", gap: 4 },
+  rankNumber: { fontSize: 13, fontWeight: "900", color: "#475569" },
+  medalBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   rankText: { fontSize: 18, fontWeight: "900", color: "#9ca3af" },
   currentUserText: { color: "#0ea5e9" },
   avatar: { width: 48, height: 48, borderRadius: 24 },
+  initialAvatar: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e0f2fe",
+  },
+  avatarInitial: { color: "#0369a1", fontSize: 18, fontWeight: "900" },
   memberInfo: { flex: 1 },
   memberName: { fontSize: 16, fontWeight: "700", color: "#111827" },
   username: { fontSize: 14, color: "#6b7280" },
   scoreContainer: { alignItems: "flex-end" },
-  score: { fontSize: 24, fontWeight: "900", color: "#111827" },
+  score: { fontSize: 30, fontWeight: "900", color: "#111827", lineHeight: 34 },
   scoreLabel: { fontSize: 12, color: "#6b7280" },
   podium: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "flex-end",
     gap: 16,
-    height: 280,
+    height: 300,
+    paddingTop: 10,
   },
   podiumPlace: { alignItems: "center", width: 90 },
   place1: { marginBottom: 0 },
-  place2: { marginBottom: 60 },
-  place3: { marginBottom: 100 },
+  place2: { marginBottom: 18 },
+  place3: { marginBottom: 42 },
+  crownIcon: { marginBottom: 4 },
   podiumAvatar1: {
     width: 64,
     height: 64,
@@ -517,6 +766,9 @@ const styles = StyleSheet.create({
     borderColor: "#d97706",
     marginBottom: 8,
   },
+  podiumInitial1: { color: "#92400e", fontSize: 24, fontWeight: "900" },
+  podiumInitial2: { color: "#475569", fontSize: 21, fontWeight: "900" },
+  podiumInitial3: { color: "#9a3412", fontSize: 18, fontWeight: "900" },
   podiumName: {
     fontSize: 12,
     fontWeight: "600",
@@ -549,9 +801,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  podiumBase1: { backgroundColor: "#fbbf24", height: 140, paddingTop: 20 },
-  podiumBase2: { backgroundColor: "#d1d5db", height: 100, paddingTop: 16 },
-  podiumBase3: { backgroundColor: "#d97706", height: 70, paddingTop: 12 },
+  podiumBase1: { backgroundColor: "#fbbf24", height: 150, paddingTop: 20 },
+  podiumBase2: { backgroundColor: "#cbd5e1", height: 112, paddingTop: 16 },
+  podiumBase3: { backgroundColor: "#d97706", height: 82, paddingTop: 12 },
   podiumRank1: { fontSize: 36, fontWeight: "900", color: "#92400e" },
   podiumRank2: { fontSize: 32, fontWeight: "900", color: "#4b5563" },
   podiumRank3: { fontSize: 28, fontWeight: "900", color: "#fff" },

@@ -150,21 +150,26 @@ export default function Dashboard() {
     const date = typeof iso === "string" ? new Date(iso) : iso;
     const hours = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60));
     if (hours < 1) return "Agora mesmo";
-    if (hours === 1) return "Ha 1h";
-    if (hours < 24) return `Ha ${hours}h`;
+    if (hours === 1) return "Há 1h";
+    if (hours < 24) return `Há ${hours}h`;
     const days = Math.floor(hours / 24);
-    return days === 1 ? "Ha 1 dia" : `Ha ${days} dias`;
+    return days === 1 ? "Há 1 dia" : `Há ${days} dias`;
   };
 
-  const formatCheckInTime = (iso: string | Date) => {
+  const activityDateLabel = (iso: string | Date) => {
     const date = typeof iso === "string" ? new Date(iso) : iso;
-    if (Number.isNaN(date.getTime())) return "";
+    if (Number.isNaN(date.getTime())) return "Recentes";
+
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) return "Hoje";
+
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) return "Ontem";
 
     return new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
+      month: "long",
     }).format(date);
   };
 
@@ -331,31 +336,48 @@ export default function Dashboard() {
 
         {/* Recent Activity Feed */}
         <View style={[styles.card, { marginBottom: 100 }]}>
-          <Text style={styles.cardTitle}>Atividade recente</Text>
+          <View style={styles.sectionTitleRow}>
+            <Clock size={18} color="#0ea5e9" />
+            <Text style={styles.cardTitleNoMargin}>Atividade recente</Text>
+          </View>
           <View style={styles.activityList}>
-            {feedActivities.map((activity) => (
-              <View key={activity.id} style={styles.activityItem}>
-                <Image
-                  source={{
-                    uri: resolveStorageUrl(activity.user.avatar) || activity.user.avatar,
-                  }}
-                  style={styles.activityAvatar}
-                />
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityText}>
-                    <Text style={styles.activityName}>{activity.user.name}</Text>{" "}
-                    fez check-in em{" "}
-                    <Text style={styles.activityDuration}>{activity.topic}</Text>
-                  </Text>
-                  {activity.note ? (
-                    <Text style={styles.activityNote}>{`"${activity.note}"`}</Text>
+            {feedActivities.map((activity, index) => {
+              const currentLabel = activityDateLabel(activity.created_at);
+              const previous = feedActivities[index - 1];
+              const showDateLabel =
+                !previous || activityDateLabel(previous.created_at) !== currentLabel;
+
+              return (
+                <View key={activity.id}>
+                  {showDateLabel ? (
+                    <Text style={styles.activityDateLabel}>{currentLabel}</Text>
                   ) : null}
-                  <Text style={styles.activityTime}>
-                    {formatTimeAgo(activity.created_at)} - {formatCheckInTime(activity.created_at)}
-                  </Text>
+                  <View style={styles.activityItem}>
+                    <Image
+                      source={{
+                        uri: resolveStorageUrl(activity.user.avatar) || activity.user.avatar,
+                      }}
+                      style={styles.activityAvatar}
+                    />
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityText}>
+                        <Text style={styles.activityName}>{activity.user.name}</Text>{" "}
+                        fez check-in em{" "}
+                        <Text style={styles.activityDuration}>
+                          {activity.group?.name ?? activity.topic}
+                        </Text>
+                      </Text>
+                      {activity.note ? (
+                        <Text style={styles.activityNote}>{`"${activity.note}"`}</Text>
+                      ) : null}
+                      <Text style={styles.activityTime}>
+                        {formatTimeAgo(activity.created_at)}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
             {!feedActivities.length ? (
               <Text style={styles.emptyGroupsText}>
                 Nenhuma atividade nos seus grupos ainda.
@@ -484,6 +506,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: "#111827",
+    marginBottom: 16,
+  },
+  cardTitleNoMargin: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 16,
   },
   cardHeader: {
@@ -624,14 +657,21 @@ const styles = StyleSheet.create({
     marginLeft: -8,
   },
   activityList: {
-    gap: 16,
+    gap: 0,
   },
   activityItem: {
     flexDirection: "row",
     gap: 12,
-    paddingBottom: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
+    borderBottomColor: "#edf2f7",
+  },
+  activityDateLabel: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 4,
+    marginBottom: 2,
   },
   activityAvatar: {
     width: 40,
